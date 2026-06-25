@@ -1,18 +1,40 @@
-local modems = peripheral.wrap("right")
+local modem = peripheral.wrap("right")
 local coords = {464, 8, 942}
-modems.open(4504)
 
-while true do --goolllyyy brooo
-  local event, side, channel, replyChannel, message, distance = os.pullEvent("modem_message")
-  if channel == 4504 and replyChannel == 4505 then
-    print(message)
-    if message == "getpos" then
-      modems.transmit(4504,4505,coords[1]..","..coords[2]..","..coords[3])
-    elseif message == "464,8,942" then --i am SO SO sorry for hardcoding the coordinates i didnt wanna make a constilation or whatever
-      print("close enough")
-      redstone.setOutput("top",true)
-      sleep(3)
-      redstone.setOutput("top",false)
+modem.open(4504)
+
+local activeTimer = nil
+
+while true do
+    local event, side, channel, replyChannel, message =
+        os.pullEvent()
+
+    if event == "modem_message" and channel == 4504 and replyChannel == 4505 then
+        print(message)
+
+        if message == "getpos" then
+            modem.transmit(
+                4504,
+                4505,
+                table.concat(coords, ",")
+            )
+
+        elseif message == "464,8,942" then
+            print("close enough")
+
+            redstone.setOutput("top", true)
+
+            -- Reset timer every time coordinates arrive
+            if activeTimer then
+                os.cancelTimer(activeTimer)
+            end
+
+            activeTimer = os.startTimer(3)
+        end
+
+    elseif event == "timer" and activeTimer and message == nil then
+        -- Timer finished
+        redstone.setOutput("top", false)
+        activeTimer = nil
     end
-  end
 end
