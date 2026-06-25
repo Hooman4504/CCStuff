@@ -2,7 +2,7 @@ local modem = peripheral.wrap("right")
 local coords = {464, 8, 942}
 local doorcooldown = 1.5
 local speaker = peripheral.wrap("left")
-local speakervol = 2
+local speakervol = 4
 local open = false
 
 modem.open(4504)
