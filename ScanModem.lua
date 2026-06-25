@@ -2,6 +2,7 @@ local modem = peripheral.wrap("right")
 local coords = {464, 8, 942}
 local doorcooldown = 1.5
 local speaker = peripheral.wrap("left")
+local speakervol = 2
 
 modem.open(4504)
 
@@ -25,7 +26,7 @@ while true do
             print("close enough")
 
             redstone.setOutput("top", true)
-            speaker.playNote("chime",.2,10)
+            speaker.playNote("chime",speakervol,10)
             -- Reset timer every time coordinates arrive
             if activeTimer then
                 os.cancelTimer(activeTimer)
