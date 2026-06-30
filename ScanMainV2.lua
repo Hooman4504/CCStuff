@@ -1,4 +1,6 @@
-
+local detector = peripheral.find("player_detector")
+local hudmodem = peripheral.find("hud_glasses")
+local modemsussy = peripheral.find("left")
 
 local playerCache = {}
 local active = {}
