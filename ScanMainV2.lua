@@ -3,11 +3,25 @@ local detector = peripheral.find("player_detector")
 local hudmodem = peripheral.find("hud_glasses")
 local modemsussy = peripheral.wrap("left")
 
+modemsussy.open(4504)
+
 local VIEWER = "Hooman4504"
 
 local doors = {}
 local playerCache = {}
 local active = {}
+
+local function distcalcT2(vec1,vec2,plr)
+  --this is 100% nessescary
+  --vec1 is plr
+  local center = vec2
+  local half = activationdist/2
+  local halfvector - vector.new(half,half,half)
+
+  local minpos = center - halfvector
+  local maxpos = center + halfvector
+  return detector.isPlayerInCoords(minpos,maxpos,plr)
+end
 
 local function worldToHud(viewer, target)
     local dx = target.x - viewer.x
@@ -76,7 +90,7 @@ local function updateComputers()
         for name, p in pairs(playerCache) do
          local pos = vector.new(p.x,p.y,p.z)
             for id,door in pairs(doors) do
-                if distcalcT2(playerPos,door.pos,player.name) then
+                if distcalcT2(pos,door.pos,p.name) then
                     modemsussy.transmit(4504,4505,{type="open",id=id})
                 end
             end
