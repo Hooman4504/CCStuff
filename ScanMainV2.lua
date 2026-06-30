@@ -1,7 +1,7 @@
 local environment = peripheral.find("environment_detector")
 local detector = peripheral.find("player_detector")
 local hudmodem = peripheral.find("hud_glasses")
-local modemsussy = peripheral.find("left")
+local modemsussy = peripheral.wrap("left")
 
 local VIEWER = "Hooman4504"
 
