@@ -1,4 +1,7 @@
 local modem = peripheral.wrap("right")
+local speaker =  peripheral.find("speaker")
+
+local speakervol = 4
 
 modem.open(4504)
 
@@ -40,6 +43,9 @@ while true do
 
             if msg.id ==
                os.getComputerID() then
+                if speaker ~= nil then
+                    speaker.playNote("chime",speakervol,10)
+                end
                 redstone.setOutput(
                     "top",
                     true
