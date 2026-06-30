@@ -1,6 +1,8 @@
 local modem = peripheral.wrap("right")
 local speaker =  peripheral.find("speaker")
 
+--hey.
+
 local open = false
 local speakervol = 4
 
