@@ -2,7 +2,16 @@ local detector = peripheral.wrap("right")
 local speaker = peripheral.wrap("top")
 local monidor = peripheral.wrap("left")
 local modemsussy = peripheral.wrap("bottom")
-local activationdist = 15
+local activationdist = 11
+local radarspeed = .5
+
+local hudmodem = peripheral.wrap("back")
+
+hudmodem.clear()
+hudmodemresetSize()
+hudmodem.setBackgroundColour(0) --transparent background
+hudmodem.setTextColour(colors.white)
+hudmodem.setCursorPos(1,1)
 
 modemsussy.open(4504)
 
@@ -60,7 +69,16 @@ local function radar_tick() --main function
         print(dist)
         end
         speaker.playerNote("bit",.5,i)
-        monidor.write(player.name..": x = "..player.x.." y = "..player.y.." z = "..player.z.." "..player.dimension)
+        
+        local playerinfostring = player.name..": x = "..
+        player.x.." y = "..player.y.." z = "..player.z..
+        " "..player.dimension
+        
+        monidor.write(playerinfostring)
+        hudmodem.write(playerinfostring)
+        local x,y = monidor.getCursorPos()
+        monidor.setCursorPos(1,y+1)
+        hudmodem.setCursorPos(1, y+1)
       end
     end
   end
