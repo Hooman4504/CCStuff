@@ -1,3 +1,4 @@
+local environment = peripheral.find("environment_detector")
 local detector = peripheral.find("player_detector")
 local hudmodem = peripheral.find("hud_glasses")
 local modemsussy = peripheral.find("left")
@@ -112,9 +113,9 @@ local function hudLoop()
             y = y + 1
         end
         
-        local viewer =
-            detector.getPlayer(VIEWER)
-        if viewer then
+        local viewer = detector.getPlayer(VIEWER)
+        
+        --[[if viewer then
             for _,name in pairs(
                 detector.getOnlinePlayers()
             ) do
@@ -132,7 +133,7 @@ local function hudLoop()
                                 x,
                                 y
                             )
-                            hudmodem.write("●")
+                            hudmodem.write("•")
                             hudmodem.setCursorPos(
                                 x+1,
                                 y
@@ -144,7 +145,39 @@ local function hudLoop()
                     end
                 end
             end
+        end]]
+
+         if viewer then
+            local entities =
+                env.scanEntities(64)
+            for _,e in ipairs(entities) do
+                -- Convert relative → absolute
+                local target = {
+                    x = viewer.x + e.x,
+                    y = viewer.y + e.y,
+                    z = viewer.z + e.z,
+                    name = e.name
+                }
+                local sx,sy =
+                    worldToHud(
+                        viewer,
+                        target
+                    )
+                if sx and sy then
+                    hudmodem.setCursorPos(
+                        sx,
+                        sy
+                    )
+                    hudmodem.write("●")
+                    if e.name then
+                        hudmodem.write(
+                            " "..e.name
+                        )
+                    end
+                end
+            end
         end
+        
         sleep(0.05)
     end
 end
