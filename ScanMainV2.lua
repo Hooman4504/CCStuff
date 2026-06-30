@@ -92,18 +92,6 @@ local function updateComputers()
     end
 end
 
-local function yawToDir(yaw)
-    yaw = yaw % 360
-
-    if yaw < 45 then return arrows.S
-    elseif yaw < 135 then return arrows.W
-    elseif yaw < 225 then return arrows.N
-    elseif yaw < 315 then return arrows.E
-    end
-
-    return arrows.S
-end
-
 local function hudLoop()
     while true do
         hudmodem.clear()
