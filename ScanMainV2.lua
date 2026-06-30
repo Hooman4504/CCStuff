@@ -16,7 +16,7 @@ local function distcalcT2(vec1,vec2,plr)
   --vec1 is plr
   local center = vec2
   local half = activationdist/2
-  local halfvector - vector.new(half,half,half)
+  local halfvector = vector.new(half,half,half)
 
   local minpos = center - halfvector
   local maxpos = center + halfvector
@@ -156,7 +156,7 @@ end
 
 local function modemListener()
     while true do
-        local _,_,channel,reply,msg =
+        local _,_,channel,reply,message =
             os.pullEvent(
                 "modem_message"
             )
