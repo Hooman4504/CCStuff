@@ -111,6 +111,7 @@ local function hudLoop()
                 )
             )
             y = y + 1
+        end
         
         local viewer =
             detector.getPlayer(VIEWER)
