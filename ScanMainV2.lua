@@ -102,8 +102,7 @@ local function hudLoop()
             hudmodem.setCursorPos(1,y)
             hudmodem.write(
                 string.format(
-                    "%s %s %.0f %.0f %.0f",
-                    yawToDir(p.yaw or 0),
+                    "%s %.0f %.0f %.0f",
                     name,
                     p.x,
                     p.y,
