@@ -39,6 +39,17 @@ local function worldToHud(viewer, target)
     return screenX, screenY
 end
 
+local function requestPositions()
+    while true do
+        modemsussy.transmit(
+            4504,
+            4505,
+            "getpos"
+        )
+        sleep(5)
+    end
+end
+
 local function scanPlayers()
     while true do
         local players = detector.getOnlinePlayers()
@@ -114,8 +125,7 @@ local function hudLoop()
         end
         
         local viewer = detector.getPlayer(VIEWER)
-        
-        --[[if viewer then
+        if viewer then
             for _,name in pairs(
                 detector.getOnlinePlayers()
             ) do
@@ -145,39 +155,7 @@ local function hudLoop()
                     end
                 end
             end
-        end]]
-
-         if viewer then
-            local entities =
-                environment.scanEntities(64)
-            for _,e in ipairs(entities) do
-                -- Convert relative → absolute
-                local target = {
-                    x = viewer.x + e.x,
-                    y = viewer.y + e.y,
-                    z = viewer.z + e.z,
-                    name = e.name
-                }
-                local sx,sy =
-                    worldToHud(
-                        viewer,
-                        target
-                    )
-                if sx and sy then
-                    hudmodem.setCursorPos(
-                        sx,
-                        sy
-                    )
-                    hudmodem.write("●")
-                    if e.name then
-                        hudmodem.write(
-                            " "..e.name
-                        )
-                    end
-                end
-            end
         end
-        
         sleep(0.05)
     end
 end
@@ -185,14 +163,25 @@ end
 local function modemListener()
     while true do
         local _,_,channel,reply,msg =
-            os.pullEvent("modem_message")
-        if channel == 4504 then
-            handleMessage(msg)
+            os.pullEvent(
+                "modem_message"
+            )
+        if channel == 4504
+        and reply == 4505 then
+            local x,y,z =
+                msg:match(
+                    "([^,]+),([^,]+),([^,]+)"
+                )
+            if x then
+            local id = x..","..y..","..z
+            acquiredpcpos[id] = vector.new(x,y,z)
+            end
         end
     end
 end
 
 parallel.waitForAll(
+    requestPositions,
     scanPlayers,
     updateComputers,
     hudLoop,
