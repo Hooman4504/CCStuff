@@ -3,6 +3,8 @@ local detector = peripheral.find("player_detector")
 local hudmodem = peripheral.find("hud_glasses")
 local modemsussy = peripheral.wrap("left")
 
+local activationdist = 11
+
 modemsussy.open(4504)
 
 local VIEWER = "Hooman4504"
