@@ -149,7 +149,7 @@ local function hudLoop()
 
          if viewer then
             local entities =
-                env.scanEntities(64)
+                environment.scanEntities(64)
             for _,e in ipairs(entities) do
                 -- Convert relative → absolute
                 local target = {
