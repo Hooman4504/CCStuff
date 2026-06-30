@@ -5,7 +5,7 @@ local modemsussy = peripheral.find("left")
 
 local VIEWER = "Hooman4504"
 
-local acquiredpcpos = {}
+local doors = {}
 local playerCache = {}
 local active = {}
 
@@ -39,12 +39,14 @@ local function worldToHud(viewer, target)
     return screenX, screenY
 end
 
-local function requestPositions()
+local function discover()
     while true do
         modemsussy.transmit(
             4504,
             4505,
-            "getpos"
+            {
+                type="discover"
+            }
         )
         sleep(5)
     end
