@@ -9,13 +9,11 @@ if not x then
 end
 
 local coords = vector.new(x,y,z)
-
 print("Position:", coords)
 
 local timer
 
 while true do
-
     local event, side,
           channel,
           reply,
@@ -25,9 +23,7 @@ while true do
     if event == "modem_message"
     and channel == 4504
     and reply == 4505 then
-
         if msg == "getpos" then
-
             modem.transmit(
                 4504,
                 4505,
@@ -44,18 +40,15 @@ while true do
 
             if msg.id ==
                os.getComputerID() then
-
                 redstone.setOutput(
                     "top",
                     true
                 )
-
                 if timer then
                     os.cancelTimer(
                         timer
                     )
                 end
-
                 timer =
                     os.startTimer(
                         1.5
@@ -64,12 +57,10 @@ while true do
         end
 
     elseif event=="timer" then
-
         redstone.setOutput(
             "top",
             false
         )
-
         timer=nil
     end
 end
