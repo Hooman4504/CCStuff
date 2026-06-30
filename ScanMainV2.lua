@@ -39,16 +39,14 @@ local function worldToHud(viewer, target)
     return screenX, screenY
 end
 
-local function discover()
+local function discoverDoors()
     while true do
         modemsussy.transmit(
             4504,
             4505,
-            {
-                type="discover"
-            }
+            "getpos"
         )
-        sleep(5)
+        sleep(10)
     end
 end
 
@@ -76,30 +74,10 @@ end
 local function updateComputers()
     while true do
         for name, p in pairs(playerCache) do
-            local pos = vector.new(p.x,p.y,p.z)
-            for _, target in pairs(acquiredpcpos) do
-                local inside =
-                    detector.isPlayerInCoords(
-                        target - vector.new(5,5,5),
-                        target + vector.new(5,5,5),
-                        name
-                    )
-                local id =
-                    target.x.."|"..
-                    target.y.."|"..
-                    target.z
-                if inside and not active[name..id] then
-                    active[name..id] = true
-                    modemsussy.transmit(
-                        4504,
-                        4505,
-                        textutils.serialize({
-                            type="entered",
-                            player=name
-                        })
-                    )
-                elseif not inside then
-                    active[name..id] = nil
+         local pos = vector.new(p.x,p.y,p.z)
+            for id,door in pairs(doors) do
+                if distcalcT2(playerPos,door.pos,player.name) then
+                    modemsussy.transmit(4504,4505,{type="open",id=id})
                 end
             end
         end
@@ -168,16 +146,20 @@ local function modemListener()
             os.pullEvent(
                 "modem_message"
             )
-        if channel == 4504
-        and reply == 4505 then
-            doors[id] = msg
-            end
+        if type(message)=="table" and message.id then
+            doors[message.id] = {
+                pos = vector.new(
+                    message.x,
+                    message.y,
+                    message.z
+                )
+            }
         end
     end
 end
 
 parallel.waitForAll(
-    discover,
+    discoverDoors,
     scanPlayers,
     updateComputers,
     hudLoop,
