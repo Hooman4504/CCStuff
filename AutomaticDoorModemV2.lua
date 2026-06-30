@@ -46,7 +46,7 @@ while true do
 
             if msg.id ==
                os.getComputerID() then
-                if speaker ~= nil and open = false then
+                if speaker ~= nil and open == false then
                     speaker.playNote("chime",speakervol,10)
                 end
                 open = true
