@@ -170,20 +170,14 @@ local function modemListener()
             )
         if channel == 4504
         and reply == 4505 then
-            local x,y,z =
-                msg:match(
-                    "([^,]+),([^,]+),([^,]+)"
-                )
-            if x then
-            local id = x..","..y..","..z
-            acquiredpcpos[id] = vector.new(x,y,z)
+            doors[id] = msg
             end
         end
     end
 end
 
 parallel.waitForAll(
-    requestPositions,
+    discover,
     scanPlayers,
     updateComputers,
     hudLoop,
