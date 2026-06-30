@@ -4,6 +4,7 @@ local modemsussy = peripheral.find("left")
 
 local VIEWER = "Hooman4504"
 
+local acquiredpcpos = {}
 local playerCache = {}
 local active = {}
 
@@ -62,7 +63,7 @@ local function updateComputers()
     while true do
         for name, p in pairs(playerCache) do
             local pos = vector.new(p.x,p.y,p.z)
-            for _, target in ipairs(acquiredpcpos) do
+            for _, target in pairs(acquiredpcpos) do
                 local inside =
                     detector.isPlayerInCoords(
                         target - vector.new(5,5,5),
@@ -95,6 +96,22 @@ end
 local function hudLoop()
     while true do
         hudmodem.clear()
+
+        local y = 1
+        for name,p in pairs(playerCache) do
+            hudmodem.setCursorPos(1,y)
+            hudmodem.write(
+                string.format(
+                    "%s %s %.0f %.0f %.0f",
+                    yawToDir(p.yaw or 0),
+                    name,
+                    p.x,
+                    p.y,
+                    p.z
+                )
+            )
+            y = y + 1
+        
         local viewer =
             detector.getPlayer(VIEWER)
         if viewer then
