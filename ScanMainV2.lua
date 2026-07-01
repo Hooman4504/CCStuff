@@ -3,7 +3,7 @@ local detector = peripheral.find("player_detector")
 local hudmodem = peripheral.find("hud_glasses")
 local modemsussy = peripheral.wrap("left")
 
-local activationdist = 11
+local activationdist = 9
 
 modemsussy.open(4504)
 
@@ -13,7 +13,7 @@ local doors = {}
 local playerCache = {}
 local active = {}
 
-local function distcalcT2(vec1,vec2,plr)
+local function distcalcT3(pos,plr)
   --this is 100% nessescary
   --vec1 is plr
   local center = vec2
@@ -80,6 +80,7 @@ local function scanPlayers()
                     -- AP exposes additional info such as yaw/pitch
                     yaw = p.yaw,
                     pitch = p.pitch,
+                    name = p.name,
                 }
             end
         end
@@ -92,7 +93,7 @@ local function updateComputers()
         for name, p in pairs(playerCache) do
          local pos = vector.new(p.x,p.y,p.z)
             for id,door in pairs(doors) do
-                if distcalcT2(pos,door.pos,p.name) then
+                if distcalcT3(door.pos,p.name) then
                     modemsussy.transmit(4504,4505,{type="open",id=id})
                 end
             end
