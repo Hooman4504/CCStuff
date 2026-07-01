@@ -39,29 +39,36 @@ end
 local function worldToHud(viewer, target)
     -- World offset
     local dx = target.x - viewer.x
-    local dy = (target.y + 1.6) - viewer.y
+    local dy = (target.y + 1.62) - viewer.y -- Adjusted to approximate player eye-height
     local dz = target.z - viewer.z
 
-    -- INVERSE camera rotation
-    local yaw = math.rad(-(viewer.yaw or 0))
-    local pitch = math.rad(-(viewer.pitch or 0))
+    -- Camera rotation angles (in radians)
+    local yaw = math.rad(viewer.yaw or 0)
+    local pitch = math.rad(viewer.pitch or 0)
 
-    -- yaw (Negated sx to correct the flipped X-axis alignment)
-    local sx = -(dx * math.cos(yaw) + dz * math.sin(yaw))
+    -- 1. Yaw rotation (horizontal plane)
+    -- sx: right(+) / left(-), sz: forward(+) / backward(-)
+    local sx = -dx * math.cos(yaw) - dz * math.sin(yaw)
     local sz = -dx * math.sin(yaw) + dz * math.cos(yaw)
 
-    -- pitch
+    -- 2. Pitch rotation (vertical plane)
+    -- sy: up(+) / down(-), sz: updated depth forward
     local sy = dy * math.cos(pitch) + sz * math.sin(pitch)
     sz = -dy * math.sin(pitch) + sz * math.cos(pitch)
 
+    -- Clip anything behind or extremely close to the viewer
     if sz <= 0.5 then
         return nil
     end
 
     local w, h = hudmodem.getSize()
     local fov = 24
+    
+    -- Projection to 2D screen coordinates
+    -- Positive sx moves the dot right (+)
+    -- Positive sy moves the dot up (which decreases screen Y coordinate)
     local screenX = math.floor(w / 2 + (sx / sz) * fov)
-    local screenY = math.floor(h / 2 + (sy / sz) * fov)
+    local screenY = math.floor(h / 2 - (sy / sz) * fov)
 
     if screenX < 1 or screenX > w or screenY < 1 or screenY > h then
         return nil
