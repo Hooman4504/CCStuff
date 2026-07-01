@@ -165,7 +165,7 @@ local function hudLoop()
       if name ~= VIEWER then
           local x,y = worldToHud(viewer,p)
           if x then
-            drawText(x,y,"• "..name)
+            drawText(x,y,"•")
           end
           end
         end
