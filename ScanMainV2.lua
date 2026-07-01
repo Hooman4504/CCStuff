@@ -9,6 +9,8 @@ modemsussy.open(4504)
 
 local VIEWER = "Hooman4504"
 
+hudmodem.clear()
+
 local playerCache = {}
 local drawn = {}
 local active = {}
@@ -38,6 +40,7 @@ local function drawText(x,y,text)
         x,
         y
     )
+  hudmodem.clear()
     hudmodem.write(
         text
     )
