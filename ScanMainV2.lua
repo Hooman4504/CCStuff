@@ -5,6 +5,7 @@ local modemsussy = peripheral.wrap("left")
 
 local activationdist = 9
 local lerpFactor = 0.22 -- Adjust this to change smoothness (lower = smoother, higher = faster)
+local lockOnThreshold = 5 -- How close to the center of the screen a dot must be to trigger target lock-on
 
 modemsussy.open(4504)
 
@@ -56,8 +57,8 @@ local function getScreenEdgeIntersection(w, h, dx, dy)
     local cx, cy = w / 2, h / 2
     local t = 1e9
     
-    local marginX = 2
-    local marginY = 1
+    local marginX = 4 -- Extra margin inside the borders so indicators don't overlap the decorative frames
+    local marginY = 3
     
     if dx > 0 then
         t = math.min(t, (w - marginX - cx) / dx)
@@ -166,6 +167,30 @@ local function updateSmoothCache()
     end
 end
 
+-- Renders brackets on the edges of the HUD to frame the UI
+local function drawHUDDecorations(w, h)
+    local frameColor = colors.cyan
+
+    -- Left border bracket
+    drawText(2, 2, "┌", frameColor)
+    for y = 3, h - 2 do
+        drawText(2, y, "│", frameColor)
+    end
+    drawText(2, h - 1, "└", frameColor)
+
+    -- Right border bracket
+    drawText(w - 1, 2, "┐", frameColor)
+    for y = 3, h - 2 do
+        drawText(w - 1, y, "│", frameColor)
+    end
+    drawText(w - 1, h - 1, "┘", frameColor)
+
+    -- Blinking Active Indicator (top-left)
+    local blink = math.floor(os.clock() * 1.5) % 2 == 0
+    local activeColor = blink and colors.green or colors.gray
+    drawText(4, 2, "HUD GLASSES: ACTIVE", activeColor)
+end
+
 local function discoverDoors()
     while true do
         modemsussy.transmit(4504, 4505, "getpos")
@@ -213,8 +238,14 @@ local function hudLoop()
         local viewer = smoothPlayerCache[VIEWER]
         if viewer then
             hudmodem.clear()
+            local w, h = hudmodem.getSize()
             
-            local otherDimLine = 1
+            -- Draw sleek border brackets and status banner
+            drawHUDDecorations(w, h)
+            
+            local otherDimLine = 4 -- Start other dimension list below status banner
+            local closestPlayer = nil
+            local closestDist = 99999
             
             for name, p in pairs(smoothPlayerCache) do
                 if name ~= VIEWER then
@@ -224,15 +255,41 @@ local function hudLoop()
                         if x then
                             local playerColor = getDimColor(p.dimension)
                             drawText(x, y, symbol, playerColor)
+
+                            -- Draw the first letter of their username near the point (if on-screen)
+                            if not isOffScreen then
+                                local initial = string.sub(name, 1, 1):upper()
+                                if x < w - 1 then
+                                    drawText(x + 1, y, initial, colors.white)
+                                else
+                                    drawText(x - 1, y, initial, colors.white)
+                                end
+
+                                -- Check distance to screen center (w/2, h/2) for lock-on
+                                local cx, cy = w / 2, h / 2
+                                local dist = math.sqrt((x - cx)^2 + (y - cy)^2)
+                                if dist < lockOnThreshold and dist < closestDist then
+                                    closestDist = dist
+                                    closestPlayer = p
+                                end
+                            end
                         end
                     else
-                        -- Draw as sidebar element (different dimension)
+                        -- Draw as sidebar element (different dimension) - offset to avoid left frame line
                         local shortDim = p.dimension:gsub("minecraft:", ""):gsub("the_", ""):gsub("^%l", string.upper)
                         local statusText = string.format("[%s] %s", shortDim, name)
-                        drawText(1, otherDimLine, statusText, getDimColor(p.dimension))
+                        drawText(4, otherDimLine, statusText, getDimColor(p.dimension))
                         otherDimLine = otherDimLine + 1
                     end
                 end
+            end
+
+            -- Target Coordinate Overlay (bottom-left area inside borders)
+            if closestPlayer then
+                drawText(4, h - 5, ">> LOCK: " .. closestPlayer.name, colors.yellow)
+                drawText(4, h - 4, string.format("X: %.1f", closestPlayer.x), colors.yellow)
+                drawText(4, h - 3, string.format("Y: %.1f", closestPlayer.y), colors.yellow)
+                drawText(4, h - 2, string.format("Z: %.1f", closestPlayer.z), colors.yellow)
             end
         end
         sleep(0.03)
