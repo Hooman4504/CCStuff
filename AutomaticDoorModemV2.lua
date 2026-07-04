@@ -11,7 +11,10 @@ modem.open(4504)
 local x,y,z = gps.locate(2)
 
 if not x then
-    repeat os.sleep(5) until x ~= nil
+    repeat
+        os.sleep(5)
+        x,y,z = gps.locate(2)
+    until x ~= nil
 end
 
 local coords = vector.new(x,y,z)
