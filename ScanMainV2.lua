@@ -19,7 +19,8 @@ local doors = {}
 local doorLogs = {} -- Stores recent door activity logs
 local doorCooldowns = {} -- Prevents log spam while a player stays near a door
 
-local win = nil -- Off-screen double buffer window to prevent flickering
+local currentFrame = {}
+local lastFrame = {}
 
 -- Define colors for different dimensions
 local dimColors = {
@@ -53,11 +54,45 @@ local function distcalcT3(pos, plr)
     return detector.isPlayerInCoords(minpos, maxpos, plr)
 end
 
-local function drawText(x, y, text, color)
-    local target = win or hudmodem
-    target.setCursorPos(x, y)
-    target.setTextColor(color or colors.white)
-    target.write(text)
+-- Writes characters into an in-memory buffer grid for diff rendering
+local function bufferText(x, y, text, color, maxW)
+    color = color or colors.white
+    local len = #text
+    if maxW and len > maxW then
+        text = string.sub(text, 1, maxW)
+        len = maxW
+    end
+
+    for i = 1, len do
+        local posX = x + i - 1
+        local ch = string.sub(text, i, i)
+        local key = posY .. ":" .. posX
+        currentFrame[key] = { char = ch, color = color, x = posX, y = y }
+    end
+end
+
+-- Flushes only modified screen characters to the HUD glasses
+local function renderDiff()
+    -- Erase pixels that were present in lastFrame but not in currentFrame
+    for key, oldPixel in pairs(lastFrame) do
+        if not currentFrame[key] then
+            hudmodem.setCursorPos(oldPixel.x, oldPixel.y)
+            hudmodem.write(" ")
+        end
+    end
+
+    -- Draw/update pixels that are new or changed in currentFrame
+    for key, newPixel in pairs(currentFrame) do
+        local oldPixel = lastFrame[key]
+        if not oldPixel or oldPixel.char ~= newPixel.char or oldPixel.color ~= newPixel.color then
+            hudmodem.setCursorPos(newPixel.x, newPixel.y)
+            hudmodem.setTextColor(newPixel.color)
+            hudmodem.write(newPixel.char)
+        end
+    end
+
+    lastFrame = currentFrame
+    currentFrame = {}
 end
 
 -- Smooths out wrapping angles (like looking past North)
@@ -190,22 +225,19 @@ local function drawHUDDecorations(w, h)
 
     -- Left border bracket line (column 2)
     for y = 2, h - 1 do
-        drawText(2, y, "|", frameColor)
+        bufferText(2, y, "|", frameColor)
     end
 
     -- Right border bracket line (column w - 1)
     for y = 2, h - 1 do
-        drawText(w - 1, y, "|", frameColor)
+        bufferText(w - 1, y, "|", frameColor)
     end
 
     -- Blinking Active Indicator (top-left)
     local blink = math.floor(os.clock() * 1.5) % 2 == 0
     local activeColor = blink and colors.green or colors.gray
     local title = "HUD GLASSES: ACTIVE"
-    if #title > (w - 5) then
-        title = string.sub(title, 1, w - 5)
-    end
-    drawText(4, 2, title, activeColor)
+    bufferText(4, 2, title, activeColor, w - 5)
 end
 
 local function discoverDoors()
@@ -264,18 +296,6 @@ local function hudLoop()
         if viewer then
             local w, h = hudmodem.getSize()
             
-            -- Initialize or resize off-screen double buffer window
-            if not win then
-                win = window.create(hudmodem, 1, 1, w, h, false)
-            else
-                local winW, winH = win.getSize()
-                if winW ~= w or winH ~= h then
-                    win.reposition(1, 1, w, h)
-                end
-            end
-
-            win.clear()
-            
             -- Draw sleek border brackets and status banner
             drawHUDDecorations(w, h)
             
@@ -290,14 +310,14 @@ local function hudLoop()
                         local x, y, isOffScreen, symbol = worldToHud(viewer, p)
                         if x then
                             local playerColor = getDimColor(p.dimension)
-                            drawText(x, y, symbol, playerColor)
+                            bufferText(x, y, symbol, playerColor)
 
                             -- Draw the first letter of their username near the point (if on-screen)
                             if not isOffScreen then
                                 local initial = string.sub(name, 1, 1):upper()
                                 local initX = (x < w - 2) and (x + 1) or (x - 1)
                                 if initX >= 3 and initX <= w - 2 then
-                                    drawText(initX, y, initial, colors.white)
+                                    bufferText(initX, y, initial, colors.white)
                                 end
 
                                 -- Check distance to screen center (w/2, h/2) for lock-on
@@ -310,14 +330,11 @@ local function hudLoop()
                             end
                         end
                     else
-                        -- Draw as sidebar element (different dimension) - truncated to fit inside frame
+                        -- Draw as sidebar element (different dimension)
                         local shortDim = p.dimension:gsub("minecraft:", ""):gsub("the_", ""):gsub("^%l", string.upper)
                         local statusText = string.format("[%s] %s", shortDim, name)
                         local maxLen = (w - 2) - 4 + 1
-                        if #statusText > maxLen then
-                            statusText = string.sub(statusText, 1, maxLen)
-                        end
-                        drawText(4, otherDimLine, statusText, getDimColor(p.dimension))
+                        bufferText(4, otherDimLine, statusText, getDimColor(p.dimension), maxLen)
                         otherDimLine = otherDimLine + 1
                     end
                 end
@@ -328,12 +345,11 @@ local function hudLoop()
             if closestPlayer then
                 local lockStr = ">> LOCK: " .. closestPlayer.name
                 local maxLen = (w - 2) - 4 + 1
-                if #lockStr > maxLen then lockStr = string.sub(lockStr, 1, maxLen) end
 
-                drawText(4, h - 5, lockStr, colors.yellow)
-                drawText(4, h - 4, string.format("X: %.1f", closestPlayer.x), colors.yellow)
-                drawText(4, h - 3, string.format("Y: %.1f", closestPlayer.y), colors.yellow)
-                drawText(4, h - 2, string.format("Z: %.1f", closestPlayer.z), colors.yellow)
+                bufferText(4, h - 5, lockStr, colors.yellow, maxLen)
+                bufferText(4, h - 4, string.format("X: %.1f", closestPlayer.x), colors.yellow, maxLen)
+                bufferText(4, h - 3, string.format("Y: %.1f", closestPlayer.y), colors.yellow, maxLen)
+                bufferText(4, h - 2, string.format("Z: %.1f", closestPlayer.z), colors.yellow, maxLen)
                 logStartLine = h - 6
             end
 
@@ -348,10 +364,9 @@ local function hudLoop()
             for i, log in ipairs(activeLogs) do
                 local text = log.text
                 local maxLen = (w - 2) - 4 + 1
-                if #text > maxLen then text = string.sub(text, 1, maxLen) end
                 local lineY = logStartLine - (#activeLogs - i)
                 if lineY >= 3 then
-                    drawText(4, lineY, text, colors.orange)
+                    bufferText(4, lineY, text, colors.orange, maxLen)
                 end
             end
 
@@ -378,13 +393,12 @@ local function hudLoop()
                 local x1 = maxRightX - #infoLine1 + 1
                 local x2 = maxRightX - #infoLine2 + 1
 
-                if x1 >= 3 then drawText(x1, h - 3, infoLine1, colors.lightBlue) end
-                if x2 >= 3 then drawText(x2, h - 2, infoLine2, colors.lightBlue) end
+                if x1 >= 3 then bufferText(x1, h - 3, infoLine1, colors.lightBlue) end
+                if x2 >= 3 then bufferText(x2, h - 2, infoLine2, colors.lightBlue) end
             end
 
-            -- Atomic flush to HUD glasses (eliminates visual screen flicker)
-            win.setVisible(true)
-            win.setVisible(false)
+            -- Perform differential rendering directly on the HUD glasses
+            renderDiff()
         end
         sleep(0.03)
     end
