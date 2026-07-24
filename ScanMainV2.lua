@@ -19,6 +19,8 @@ local doors = {}
 local doorLogs = {} -- Stores recent door activity logs
 local doorCooldowns = {} -- Prevents log spam while a player stays near a door
 
+local win = nil -- Off-screen double buffer window to prevent flickering
+
 -- Define colors for different dimensions
 local dimColors = {
     ["minecraft:overworld"] = colors.green,
@@ -52,9 +54,10 @@ local function distcalcT3(pos, plr)
 end
 
 local function drawText(x, y, text, color)
-    hudmodem.setCursorPos(x, y)
-    hudmodem.setTextColor(color or colors.white)
-    hudmodem.write(text)
+    local target = win or hudmodem
+    target.setCursorPos(x, y)
+    target.setTextColor(color or colors.white)
+    target.write(text)
 end
 
 -- Smooths out wrapping angles (like looking past North)
@@ -70,7 +73,7 @@ local function getScreenEdgeIntersection(w, h, dx, dy)
     local cx, cy = w / 2, h / 2
     local t = 1e9
     
-    local marginX = 4 -- Extra margin inside the borders so indicators don't overlap the decorative frames
+    local marginX = 4 -- Margin inside vertical borders (x=2 and x=w-1)
     local marginY = 3
     
     if dx > 0 then
@@ -88,8 +91,9 @@ local function getScreenEdgeIntersection(w, h, dx, dy)
     local edgeX = math.floor(cx + t * dx)
     local edgeY = math.floor(cy + t * dy)
     
-    edgeX = math.max(1, math.min(w, edgeX))
-    edgeY = math.max(1, math.min(h, edgeY))
+    -- Keep edge symbols safely inside the frame lines
+    edgeX = math.max(3, math.min(w - 2, edgeX))
+    edgeY = math.max(2, math.min(h - 1, edgeY))
     
     local angle = math.atan2(dy, dx)
     local deg = math.deg(angle)
@@ -138,7 +142,7 @@ local function worldToHud(viewer, target)
     local screenX = math.floor(w / 2 + (testX / depth) * fov)
     local screenY = math.floor(h / 2 - (testY / depth) * fov)
 
-    local isOffScreen = isBehind or (screenX < 1 or screenX > w or screenY < 1 or screenY > h)
+    local isOffScreen = isBehind or (screenX < 3 or screenX > w - 2 or screenY < 2 or screenY > h - 1)
 
     if isOffScreen then
         local rx = screenX - (w / 2)
@@ -184,24 +188,24 @@ end
 local function drawHUDDecorations(w, h)
     local frameColor = colors.cyan
 
-    -- Left border bracket
-    drawText(2, 2, "|", frameColor)
-    for y = 3, h - 2 do
+    -- Left border bracket line (column 2)
+    for y = 2, h - 1 do
         drawText(2, y, "|", frameColor)
     end
-    drawText(2, h - 1, "|", frameColor)
 
-    -- Right border bracket
-    drawText(w - 1, 2, "|", frameColor)
-    for y = 3, h - 2 do
+    -- Right border bracket line (column w - 1)
+    for y = 2, h - 1 do
         drawText(w - 1, y, "|", frameColor)
     end
-    drawText(w - 1, h - 1, "|", frameColor)
 
     -- Blinking Active Indicator (top-left)
     local blink = math.floor(os.clock() * 1.5) % 2 == 0
     local activeColor = blink and colors.green or colors.gray
-    drawText(4, 2, "HUD GLASSES: ACTIVE", activeColor)
+    local title = "HUD GLASSES: ACTIVE"
+    if #title > (w - 5) then
+        title = string.sub(title, 1, w - 5)
+    end
+    drawText(4, 2, title, activeColor)
 end
 
 local function discoverDoors()
@@ -258,8 +262,19 @@ local function hudLoop()
         updateSmoothCache()
         local viewer = smoothPlayerCache[VIEWER]
         if viewer then
-            hudmodem.clear()
             local w, h = hudmodem.getSize()
+            
+            -- Initialize or resize off-screen double buffer window
+            if not win then
+                win = window.create(hudmodem, 1, 1, w, h, false)
+            else
+                local winW, winH = win.getSize()
+                if winW ~= w or winH ~= h then
+                    win.reposition(1, 1, w, h)
+                end
+            end
+
+            win.clear()
             
             -- Draw sleek border brackets and status banner
             drawHUDDecorations(w, h)
@@ -280,10 +295,9 @@ local function hudLoop()
                             -- Draw the first letter of their username near the point (if on-screen)
                             if not isOffScreen then
                                 local initial = string.sub(name, 1, 1):upper()
-                                if x < w - 1 then
-                                    drawText(x + 1, y, initial, colors.white)
-                                else
-                                    drawText(x - 1, y, initial, colors.white)
+                                local initX = (x < w - 2) and (x + 1) or (x - 1)
+                                if initX >= 3 and initX <= w - 2 then
+                                    drawText(initX, y, initial, colors.white)
                                 end
 
                                 -- Check distance to screen center (w/2, h/2) for lock-on
@@ -296,9 +310,13 @@ local function hudLoop()
                             end
                         end
                     else
-                        -- Draw as sidebar element (different dimension) - offset to avoid left frame line
+                        -- Draw as sidebar element (different dimension) - truncated to fit inside frame
                         local shortDim = p.dimension:gsub("minecraft:", ""):gsub("the_", ""):gsub("^%l", string.upper)
                         local statusText = string.format("[%s] %s", shortDim, name)
+                        local maxLen = (w - 2) - 4 + 1
+                        if #statusText > maxLen then
+                            statusText = string.sub(statusText, 1, maxLen)
+                        end
                         drawText(4, otherDimLine, statusText, getDimColor(p.dimension))
                         otherDimLine = otherDimLine + 1
                     end
@@ -308,7 +326,11 @@ local function hudLoop()
             -- Target Coordinate Overlay (bottom-left area inside borders)
             local logStartLine = h - 2
             if closestPlayer then
-                drawText(4, h - 5, ">> LOCK: " .. closestPlayer.name, colors.yellow)
+                local lockStr = ">> LOCK: " .. closestPlayer.name
+                local maxLen = (w - 2) - 4 + 1
+                if #lockStr > maxLen then lockStr = string.sub(lockStr, 1, maxLen) end
+
+                drawText(4, h - 5, lockStr, colors.yellow)
                 drawText(4, h - 4, string.format("X: %.1f", closestPlayer.x), colors.yellow)
                 drawText(4, h - 3, string.format("Y: %.1f", closestPlayer.y), colors.yellow)
                 drawText(4, h - 2, string.format("Z: %.1f", closestPlayer.z), colors.yellow)
@@ -324,7 +346,13 @@ local function hudLoop()
                 end
             end
             for i, log in ipairs(activeLogs) do
-                drawText(4, logStartLine - (#activeLogs - i), log.text, colors.orange)
+                local text = log.text
+                local maxLen = (w - 2) - 4 + 1
+                if #text > maxLen then text = string.sub(text, 1, maxLen) end
+                local lineY = logStartLine - (#activeLogs - i)
+                if lineY >= 3 then
+                    drawText(4, lineY, text, colors.orange)
+                end
             end
 
             -- Time & Weather Module (Bottom Right)
@@ -342,13 +370,21 @@ local function hudLoop()
                     weatherStr = "Rain"
                 end
 
-                -- Fixed width right-aligned string layout to prevent screen flickering
-                local infoLine1 = string.format("TIME: %-7s", timeStr)
-                local infoLine2 = string.format("WX:   %-7s", weatherStr)
+                local infoLine1 = "TIME: " .. timeStr
+                local infoLine2 = "WX: " .. weatherStr
 
-                drawText(w - 14, h - 3, infoLine1, colors.lightBlue)
-                drawText(w - 14, h - 2, infoLine2, colors.lightBlue)
+                -- Dynamically right-align strictly inside frame border (column w - 2)
+                local maxRightX = w - 2
+                local x1 = maxRightX - #infoLine1 + 1
+                local x2 = maxRightX - #infoLine2 + 1
+
+                if x1 >= 3 then drawText(x1, h - 3, infoLine1, colors.lightBlue) end
+                if x2 >= 3 then drawText(x2, h - 2, infoLine2, colors.lightBlue) end
             end
+
+            -- Atomic flush to HUD glasses (eliminates visual screen flicker)
+            win.setVisible(true)
+            win.setVisible(false)
         end
         sleep(0.03)
     end
