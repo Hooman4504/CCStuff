@@ -16,6 +16,7 @@ hudmodem.clear()
 local playerCache = {}
 local smoothPlayerCache = {}
 local doors = {}
+local doorLogs = {} -- Stores recent door activity logs
 
 -- Define colors for different dimensions
 local dimColors = {
@@ -26,6 +27,17 @@ local dimColors = {
 
 local function getDimColor(dim)
     return dimColors[dim] or colors.white
+end
+
+local function addDoorLog(doorId)
+    table.insert(doorLogs, {
+        text = string.format("[LOG] Opened Door #%s", tostring(doorId)),
+        time = os.clock()
+    })
+    -- Keep log history manageable
+    if #doorLogs > 5 then
+        table.remove(doorLogs, 1)
+    end
 end
 
 local function distcalcT3(pos, plr)
@@ -225,6 +237,7 @@ local function updateComputers()
             for id, door in pairs(doors) do
                 if distcalcT3(door.pos, p.name) then
                     modemsussy.transmit(4504, 4505, {type = "open", id = id})
+                    addDoorLog(id)
                 end
             end
         end
@@ -285,11 +298,42 @@ local function hudLoop()
             end
 
             -- Target Coordinate Overlay (bottom-left area inside borders)
+            local logStartLine = h - 2
             if closestPlayer then
                 drawText(4, h - 5, ">> LOCK: " .. closestPlayer.name, colors.yellow)
                 drawText(4, h - 4, string.format("X: %.1f", closestPlayer.x), colors.yellow)
                 drawText(4, h - 3, string.format("Y: %.1f", closestPlayer.y), colors.yellow)
                 drawText(4, h - 2, string.format("Z: %.1f", closestPlayer.z), colors.yellow)
+                logStartLine = h - 6
+            end
+
+            -- Door Event Log (Bottom-Left)
+            local now = os.clock()
+            local activeLogs = {}
+            for _, log in ipairs(doorLogs) do
+                if now - log.time <= 3.0 then -- Display logs for 3 seconds
+                    table.insert(activeLogs, log)
+                end
+            end
+            for i, log in ipairs(activeLogs) do
+                drawText(4, logStartLine - (#activeLogs - i), log.text, colors.orange)
+            end
+
+            -- Time & Weather Module (Bottom Right)
+            if environment then
+                local timeStr = textutils.formatTime(environment.getTime(), true)
+                local weatherStr = "Clear"
+                if environment.isThundering() then
+                    weatherStr = "Thunder"
+                elseif environment.isRaining() then
+                    weatherStr = "Rain"
+                end
+                
+                local infoLine1 = "TIME: " .. timeStr
+                local infoLine2 = "WX: " .. weatherStr
+
+                drawText(w - #infoLine1 - 3, h - 3, infoLine1, colors.lightBlue)
+                drawText(w - #infoLine2 - 3, h - 2, infoLine2, colors.lightBlue)
             end
         end
         sleep(0.03)
