@@ -323,7 +323,7 @@ local function hudLoop()
             if environment then
                 local timeStr = textutils.formatTime(environment.getTime(), true)
                 local weatherStr = "Clear"
-                if environment.isThundering() then
+                if environment.isThunder() then
                     weatherStr = "Thunder"
                 elseif environment.isRaining() then
                     weatherStr = "Rain"
