@@ -17,6 +17,7 @@ local playerCache = {}
 local smoothPlayerCache = {}
 local doors = {}
 local doorLogs = {} -- Stores recent door activity logs
+local doorCooldowns = {} -- Prevents log spam while a player stays near a door
 
 -- Define colors for different dimensions
 local dimColors = {
@@ -184,18 +185,18 @@ local function drawHUDDecorations(w, h)
     local frameColor = colors.cyan
 
     -- Left border bracket
-    drawText(2, 2, "┌", frameColor)
+    drawText(2, 2, "|", frameColor)
     for y = 3, h - 2 do
-        drawText(2, y, "│", frameColor)
+        drawText(2, y, "|", frameColor)
     end
-    drawText(2, h - 1, "└", frameColor)
+    drawText(2, h - 1, "|", frameColor)
 
     -- Right border bracket
-    drawText(w - 1, 2, "┐", frameColor)
+    drawText(w - 1, 2, "|", frameColor)
     for y = 3, h - 2 do
-        drawText(w - 1, y, "│", frameColor)
+        drawText(w - 1, y, "|", frameColor)
     end
-    drawText(w - 1, h - 1, "┘", frameColor)
+    drawText(w - 1, h - 1, "|", frameColor)
 
     -- Blinking Active Indicator (top-left)
     local blink = math.floor(os.clock() * 1.5) % 2 == 0
@@ -233,11 +234,18 @@ end
 
 local function updateComputers()
     while true do
+        local now = os.clock()
         for name, p in pairs(playerCache) do
             for id, door in pairs(doors) do
                 if distcalcT3(door.pos, p.name) then
                     modemsussy.transmit(4504, 4505, {type = "open", id = id})
-                    addDoorLog(id)
+                    
+                    -- Only record a log entry if this door hasn't been triggered in the last 5 seconds
+                    local lastTrigger = doorCooldowns[id] or 0
+                    if now - lastTrigger > 5.0 then
+                        addDoorLog(id)
+                        doorCooldowns[id] = now
+                    end
                 end
             end
         end
@@ -321,19 +329,25 @@ local function hudLoop()
 
             -- Time & Weather Module (Bottom Right)
             if environment then
-                local timeStr = textutils.formatTime(environment.getTime(), true)
+                local rawTime = environment.getTime and environment.getTime("ingame") or 0
+                if type(rawTime) == "number" and rawTime > 24000 then
+                    rawTime = rawTime % 24000
+                end
+
+                local timeStr = textutils.formatTime(rawTime, true)
                 local weatherStr = "Clear"
-                if environment.isThunder() then
+                if environment.isThunder and environment.isThunder() then
                     weatherStr = "Thunder"
-                elseif environment.isRaining() then
+                elseif environment.isRaining and environment.isRaining() then
                     weatherStr = "Rain"
                 end
-                
-                local infoLine1 = "TIME: " .. timeStr
-                local infoLine2 = "WX: " .. weatherStr
 
-                drawText(w - #infoLine1 - 3, h - 3, infoLine1, colors.lightBlue)
-                drawText(w - #infoLine2 - 3, h - 2, infoLine2, colors.lightBlue)
+                -- Fixed width right-aligned string layout to prevent screen flickering
+                local infoLine1 = string.format("TIME: %-7s", timeStr)
+                local infoLine2 = string.format("WX:   %-7s", weatherStr)
+
+                drawText(w - 14, h - 3, infoLine1, colors.lightBlue)
+                drawText(w - 14, h - 2, infoLine2, colors.lightBlue)
             end
         end
         sleep(0.03)
