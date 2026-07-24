@@ -66,7 +66,7 @@ local function bufferText(x, y, text, color, maxW)
     for i = 1, len do
         local posX = x + i - 1
         local ch = string.sub(text, i, i)
-        local key = posY .. ":" .. posX
+        local key = y .. ":" .. posX
         currentFrame[key] = { char = ch, color = color, x = posX, y = y }
     end
 end
