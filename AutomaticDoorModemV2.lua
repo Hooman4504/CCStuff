@@ -50,7 +50,6 @@ while true do
             if msg.id ==
                os.getComputerID() then
                 if speaker ~= nil then
-                    --please stop giving me this bs error before i kill myself
                     if open == false then
                         speaker.playNote("chime",speakervol,10)
                     end
