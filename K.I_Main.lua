@@ -1,7 +1,10 @@
 local chatter = peripheral.find("chat_box")
 local plrdt = peripheral.find("player_detector")
+local modems = peripheral.find("modem")
 local questionopen = false
 local istated = false
+
+modems.open(67)
 
 local function thisisgonnabeamazing()
     while true do
@@ -16,6 +19,24 @@ local function thisisgonnabeamazing()
             questionopen = false
         end
         
+        if msg == "do it jiggle?" then
+            os.sleep(4.5+coolnumber/10)
+            local msg = chatter.sendMessage("sorry but i cannot fulfill that request.","K.I","<>",nil)
+            questionopen = false
+        end
+        
+        if msg == "rape him" then
+            os.sleep(2.5+coolnumber/10)
+            local msg = chatter.sendMessage("literally no.","K.I","<>",nil)
+            questionopen = false
+        end
+        
+        if msg == "can you just kill yourself?" then
+            os.sleep(4.5+coolnumber/10)
+            local msg = chatter.sendMessage("no but i can turn myself off if you want.","K.I","<>",nil)
+            questionopen = false
+        end
+        
         if msg == "it do jiggle though right?" then
             os.sleep(4.5+coolnumber/10)
             local msg = chatter.sendMessage("im gonna call the police","K.I","<>",nil)
@@ -25,6 +46,12 @@ local function thisisgonnabeamazing()
         if msg == "i love you" then
             os.sleep(4.5+coolnumber/10)
             local msg = chatter.sendMessage("ugh fine we can crack i guess","K.I","<>",nil)
+            questionopen = false
+        end
+        
+        if msg == "can i get ur base location?" then
+            os.sleep(4.5+coolnumber/10)
+            local msg = chatter.sendMessage("im WORKING on it loser.","K.I","<>",nil)
             questionopen = false
         end
         
@@ -91,7 +118,7 @@ local function thisisgonnabeamazing()
         end
         
         questionopen = false
-        
+            
         if msg == "shut up" or msg == "cut it out" or msg == "be quiet" or msg == "can you not" or msg == "SHUT UP" then
             if plr == "Hooman4504" then
                 local cool = math.random(1,2)
@@ -116,6 +143,17 @@ local function thisisgonnabeamazing()
         end
         
         istated = false
+        
+        if msg == "K.I help me" or msg == "K.I can u tp me" or msg == "K.I can u tp me?" or msg == "can u tp me K.I?" or msg == "tp me K.I" or msg == "K.I tp me" then
+                if plr == "Hooman4504" then
+                modems.transmit(67, 68, plr)
+                os.sleep(1.5+coolnumber/10)
+                local msg = chatter.sendMessage("DW ILL SAVE YOU","K.I","<>",nil)
+            else
+                os.sleep(1.5+coolnumber/10)
+                local msg = chatter.sendMessage("nah.","K.I","<>",nil)
+            end
+        end
         
         local called = string.find(msg,"K.I?",0, true)
         if called then
@@ -160,6 +198,11 @@ local function fineltest()
          elseif user == "Hooman4504" then
              os.sleep(1+naturdel)
              local msg = chatter.sendMessage("sup","K.I","<>",nil)
+         elseif user == "spaghettiquixote" then
+             os.sleep(1+naturdel)
+             local msg = chatter.sendMessage("yo","K.I","<>",nil)
+             os.sleep(3+naturdel)
+             local msg = chatter.sendMessage("cook me food beaner","K.I","<>",nil)
          elseif user == "___Giggity___" then
                os.sleep(2+naturdel)
                local msg = chatter.sendMessage("EvilFartGod has entered le chat","K.I","<>",nil)
@@ -192,7 +235,20 @@ local function fineltest()
     end
 end
 
+local function brutal()
+    while true do
+        local event, username, dimension = os.pullEvent("playerLeave")
+        local chance = math.random(1,2)
+        if chance == 1 then
+            local coolnumber = math.random(1,2)
+            os.sleep(1+coolnumber/10)
+            local msg = chatter.sendMessage("brutal.","K.I","<>",nil)
+        end
+    end
+end
+
 parallel.waitForAll(
 thisisgonnabeamazing,
-fineltest
+fineltest,
+brutal
 )
