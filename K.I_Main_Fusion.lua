@@ -146,3 +146,9 @@ local function thisisgonnabeamazing()
     end
   end
 end
+
+parallel.waitForAll(
+thisisgonnabeamazing,
+fineltest,
+brutal
+)
