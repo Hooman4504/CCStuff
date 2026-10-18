@@ -147,8 +147,58 @@ local function thisisgonnabeamazing()
   end
 end
 
+local function fineltest()
+  while true do
+  local event, uuid, user, dimension = os.pullEvent("player_join")
+    if user == "duck_chak" then
+        sayJoin("oh hey duck", 3.0)
+    elseif user == "Hooman4504" then
+        sayJoin("sup", 1.0)
+    elseif user == "___Giggity___" then
+        sayJoin("bro.", 2.0)
+    elseif user == "burger_destroyer" then
+        istated = true
+        sayJoin("whoa", 1.0)
+        sayJoin("the burger muncher himself", 2.0)
+    else
+        istated = true
+        local msgrng = math.random(1, 3)
+        if msgrng == 1 then
+            sayJoin("yo", 3.0)
+            say("who is this guy?", 0)
+        elseif msgrng == 2 then
+            sayJoin("well well well.", 3.0)
+        elseif msgrng == 3 then
+            sayJoin("holy crap", 3.0)
+            say("YO IM UR BIGGEST FAN", 2.0)
+      end
+    end
+  end
+end
+
+local function brutal1()
+  while true do
+  local event, uuid, username, dimension = os.pullEvent("player_leave")
+    -- 50% chance to comment on the player leaving
+    if math.random(1, 2) == 1 then
+        say("yo whyd he leave.", 1.0)
+    end
+  end
+end
+
+local function brutal2()
+  while true do
+  local event, uuid, username, damageSource = os.pullEvent("player_death")
+    -- 50% chance to comment on the player dying
+    if math.random(1, 2) == 1 then
+        say("brutal.", 1.0)
+    end
+  end
+end
+
 parallel.waitForAll(
 thisisgonnabeamazing,
 fineltest,
-brutal
+brutal1,
+brutal2
 )
