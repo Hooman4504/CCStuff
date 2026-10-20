@@ -1,12 +1,12 @@
 ------------------------------------------------------------
 -- Advanced Peripherals 0.8.2a
--- Smart Glasses but better (Optimized & Fixed)
+-- Smart Glasses coordinates display (UUID Workaround & Fixed)
 ------------------------------------------------------------
 
 local monitor = smartglasses.modules.overlay
 local playerz = peripheral.find("player_detector")
 
-local multidimspyallowed = nil
+local multidimspyallowed = false
 local allowedwearerIsWearing = false
 
 local allowedwearers = {
@@ -14,22 +14,37 @@ local allowedwearers = {
   "burger_destroyer"
 }
 
+-- 1. Get owner data (UUID is reliable even if .name is bugged as "minecraft:Player")
 local wearer = smartglasses.getOwner()
+local actualWearerName = nil
 
--- Safe check for wearer data
-local wearplayer = wearer and playerz.getPlayer(wearer.uuid or wearer.name)
-local ownerdim = wearplayer and wearplayer.dimension
-if ownerdim ~= nil then
-  multidimspyallowed = true
-else
-  multidimspyallowed = false
+if wearer and wearer.uuid then
+  local onlinePlayers = playerz.getOnlinePlayers()
+  for _, plrName in ipairs(onlinePlayers) do
+    local pData = playerz.getPlayer(plrName)
+    -- Match the online player's UUID with the glasses owner's UUID
+    if pData and pData.uuid == wearer.uuid then
+      actualWearerName = plrName
+      break
+    end
+  end
 end
 
-if wearplayer then
-  for i, v in pairs(allowedwearers) do
-    if wearplayer.name == v then
+-- 2. Validate if the resolved true username is allowed
+if actualWearerName then
+  for _, v in pairs(allowedwearers) do
+    if actualWearerName == v then
       allowedwearIsWearing = true
+      break
     end
+  end
+end
+
+-- 3. Check dimension permissions using the verified name
+if actualWearerName then
+  local wearplayer = playerz.getPlayer(actualWearerName)
+  if wearplayer and wearplayer.dimension ~= nil then
+    multidimspyallowed = true
   end
 end
 
@@ -55,8 +70,6 @@ while true do
   local currentPlayers = {}
 
   for i, plr in ipairs(list) do
-    -- 'plr' from getOnlinePlayers() is already the clean string username, 
-    -- bypassing any weird formatting from player.name
     currentPlayers[plr] = true
     
     local player = playerz.getPlayer(plr)
@@ -65,7 +78,7 @@ while true do
       local y = floor(player.y)
       local z = floor(player.z)
       
-      local contentText = string.wpformat and string.format("%s x: %d y: %d z: %d", plr, x, y, z) or (plr.." x: "..x.." y: "..y.." z: "..z)
+      local contentText = string.format("%s x: %d y: %d z: %d", plr, x, y, z)
 
       if multidimspyallowed == true then
         local playerdim = player.dimension
@@ -73,9 +86,10 @@ while true do
 
       -- Check if text element already exists for this player
       if activeTexts[plr] then
-        -- Update existing element using setContent instead of recreating it
+        -- Update existing element content and use individual setter methods
         activeTexts[plr].setContent(contentText)
-        activeTexts[plr].setPos(30, i * 30)
+        activeTexts[plr].setX(30)
+        activeTexts[plr].setY(i * 30)
       else
         -- Create a new text element if it doesn't exist
         activeTexts[plr] = monitor.createText({
