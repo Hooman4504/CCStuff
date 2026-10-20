@@ -9,6 +9,7 @@ local envDetector = peripheral.find("environment_detector")
 
 local multidimspyallowed = false
 local allowedwearerIsWearing = false
+local hudVisible = true -- Toggle state for V key
 
 local allowedwearers = {
   "Hooman4504",
@@ -41,10 +42,9 @@ if actualWearerName then
 end
 
 -- 3. Check dimension permissions using the verified name
-local wearerData = nil
 if actualWearerName then
-  wearerData = playerz.getPlayer(actualWearerName)
-  if wearerData and wearerData.dimension ~= nil then
+  local wearplayer = playerz.getPlayer(actualWearerName)
+  if wearplayer and wearplayer.dimension ~= nil then
     multidimspyallowed = true
   end
 end
@@ -80,6 +80,23 @@ local envTexts = {}
 local statsBg = nil
 local statsTexts = {}
 local selectedPlayerIndex = 1
+local statusTextObj = nil
+
+-- Helper to clear out UI elements when toggled off
+local function clearUIElements()
+  if playerListBg and playerListBg.delete then playerListBg.delete(); playerListBg = nil end
+  if envBg and envBg.delete then envBg.delete(); envBg = nil end
+  if statsBg and statsBg.delete then statsBg.delete(); statsBg = nil end
+  
+  for _, el in pairs(activeTexts) do if el.delete then el.delete() end end
+  activeTexts = {}
+  
+  for _, el in pairs(envTexts) do if el.delete then el.delete() end end
+  envTexts = {}
+  
+  for _, el in pairs(statsTexts) do if el.delete then el.delete() end end
+  statsTexts = {}
+end
 
 local function mainLoop()
   while true do
@@ -89,6 +106,42 @@ local function mainLoop()
     end
     
     os.sleep(0.1)
+
+    -- Fetch fresh wearer coordinates every tick for accurate distance calculation
+    local wearerData = nil
+    if actualWearerName then
+      wearerData = playerz.getPlayer(actualWearerName)
+    end
+
+    -- Update Top-Right Status Indicator (Always visible regardless of HUD toggle)
+    local statusStr = hudVisible and "HUD: ENABLED" or "HUD: DISABLED"
+    local statusColor = hudVisible and 0x00FF00 or 0xFF0000
+    if not statusTextObj then
+      statusTextObj = monitor.createText({
+        gui = false,
+        relativePosition = true,
+        relativeRotation = true,
+        rotY = -10,
+        center = true,
+        x = 4.2,
+        y = 2.2,
+        z = -3,
+        fontSize = 0.02,
+        content = statusStr,
+        shadow = true
+      })
+    else
+      statusTextObj.setContent(statusStr)
+      statusTextObj.setX(4.2)
+      statusTextObj.setY(2.2)
+      statusTextObj.setZ(-3)
+    end
+
+    -- If HUD is disabled, clear elements and skip rendering the rest
+    if not hudVisible then
+      clearUIElements()
+      goto continue
+    end
     
     local list = playerz.getOnlinePlayers()
     local currentPlayers = {}
@@ -101,12 +154,13 @@ local function mainLoop()
       selectedPlayerIndex = 1
     end
 
-    -- 1. Manage scaling background rectangle for the player list (Left 3D Panel, moved down by 1.5)
+    -- 1. Manage scaling background rectangle for the player list (Left 3D Panel at Y = -1.35)
     local totalLines = playerCount + 1
     local bgHeight = math.max(1.5, (totalLines * 0.4) + 0.4)
     if playerCount > 0 then
       if playerListBg then
         playerListBg.setSizeY(bgHeight)
+        playerListBg.setY(-1.35)
       else
         playerListBg = monitor.createRectangle({
           gui = false,
@@ -114,7 +168,7 @@ local function mainLoop()
           relativeRotation = true,
           rotY = 10,
           x = -3.5,
-          y = -1.5,
+          y = -1.35,
           z = -3,
           sizeX = 4,
           sizeY = bgHeight,
@@ -138,7 +192,7 @@ local function mainLoop()
         rotY = 10,
         center = true,
         x = -3.5,
-        y = -0.4,
+        y = -0.25,
         z = -3,
         fontSize = 0.02,
         content = "--- PLAYERS ---",
@@ -146,7 +200,7 @@ local function mainLoop()
       })
     else
       activeTexts["__title__"].setX(-3.5)
-      activeTexts["__title__"].setY(-0.4)
+      activeTexts["__title__"].setY(-0.25)
       activeTexts["__title__"].setZ(-3)
     end
 
@@ -163,7 +217,7 @@ local function mainLoop()
         local prefix = (i == selectedPlayerIndex) and "> " or "  "
         local contentText = string.format("%s%s x:%d y:%d z:%d", prefix, plr, x, y, z)
 
-        local yPos = -0.8 - ((i - 1) * 0.4)
+        local yPos = -0.65 - ((i - 1) * 0.4)
 
         if activeTexts[plr] then
           activeTexts[plr].setContent(contentText)
@@ -198,7 +252,7 @@ local function mainLoop()
       end
     end
 
-    -- 3. Selected Player Statistics Panel (Positioned above coordinate panel with same rotation)
+    -- 3. Selected Player Statistics Panel (Stat text starting at Y = 2.4)
     if playerCount > 0 and list[selectedPlayerIndex] then
       local selectedName = list[selectedPlayerIndex]
       local targetData = playerz.getPlayer(selectedName)
@@ -206,7 +260,7 @@ local function mainLoop()
       if targetData then
         local statDim = tostring(targetData.dimension or "Unknown"):gsub("minecraft:", "")
         
-        -- Calculate distance from wearer if wearer coordinates are valid
+        -- Calculate distance from wearer
         local distStr = "N/A"
         if wearerData and wearerData.x and targetData.x then
           local dx = targetData.x - wearerData.x
@@ -237,7 +291,7 @@ local function mainLoop()
             relativeRotation = true,
             rotY = 10,
             x = -3.5,
-            y = 1.0,
+            y = 2.0, -- Positioned matching stat group area
             z = -3,
             sizeX = 4,
             sizeY = statsBgHeight,
@@ -246,10 +300,11 @@ local function mainLoop()
           })
         else
           statsBg.setSizeY(statsBgHeight)
+          statsBg.setY(2.0)
         end
 
         for idx, line in ipairs(statStats) do
-          local sY = 1.5 - ((idx - 1) * 0.35)
+          local sY = 2.4 - ((idx - 1) * 0.35) -- Stat text starts precisely at Y = 2.4
           if statsTexts[idx] then
             statsTexts[idx].setContent(line)
             statsTexts[idx].setX(-3.5)
@@ -351,10 +406,12 @@ local function mainLoop()
         end
       end
     end
+
+    ::continue::
   end
 end
 
--- Key listener function to handle Up/Down arrow selection
+-- Key listener function to handle Up/Down arrow selection and V toggle
 local function keyListener()
   while true do
     local event, key = os.pullEvent("key")
@@ -362,6 +419,8 @@ local function keyListener()
       selectedPlayerIndex = selectedPlayerIndex - 1
     elseif key == keys.down or key == keys.s then
       selectedPlayerIndex = selectedPlayerIndex + 1
+    elseif key == keys.v then
+      hudVisible = not hudVisible
     end
   end
 end
