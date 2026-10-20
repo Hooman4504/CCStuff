@@ -1,4 +1,8 @@
--- STREAMING_CHUNK: Initializing peripherals and permission checks...
+------------------------------------------------------------
+-- Advanced Peripherals 0.8.2a
+-- Smart Glasses but better (Optimized & Fixed)
+------------------------------------------------------------
+
 local monitor = smartglasses.modules.overlay
 local playerz = peripheral.find("player_detector")
 
@@ -6,84 +10,92 @@ local multidimspyallowed = nil
 local allowedwearerIsWearing = false
 
 local allowedwearers = {
-"Hooman4504",
-"burger_destroyer"
+  "Hooman4504",
+  "burger_destroyer"
 }
 
 local wearer = smartglasses.getOwner()
 
--- Testing for multidimspy/wearer blacklist
-local wearplayer = playerz.getPlayer(wearer.uuid)
-if wearplayer and wearplayer.dimension ~= nil then
-multidimspyallowed = true
+-- Safe check for wearer data
+local wearplayer = wearer and playerz.getPlayer(wearer.uuid or wearer.name)
+local ownerdim = wearplayer and wearplayer.dimension
+if ownerdim ~= nil then
+  multidimspyallowed = true
 else
-multidimspyallowed = false
+  multidimspyallowed = false
 end
 
-for i, v in pairs(allowedwearers) do
-if wearplayer and wearplayer.name == v then
-allowedwearIsWearing = true
-end
+if wearplayer then
+  for i, v in pairs(allowedwearers) do
+    if wearplayer.name == v then
+      allowedwearIsWearing = true
+    end
+  end
 end
 
--- STREAMING_CHUNK: Defining helper functions...
+-- Floor function
 local function floor(value)
-return math.floor(value)
+  return math.floor(value)
 end
 
--- Table to store persistent text element references for each player
-local playerTexts = {}
+-- Table to keep track of active text elements per player
+local activeTexts = {}
 
--- STREAMING_CHUNK: Starting the main coordinate tracking loop...
+-- Main loop
 while true do
-if not allowedwearerIsWearing then
-print("Invalid permissions. Returning.")
-return
-end
+  
+  if allowedwearerIsWearing == false then
+    print("invalid permissions. returning.")
+    return
+  end
+  
+  os.sleep(1)
+  
+  local list = playerz.getOnlinePlayers()
+  local currentPlayers = {}
 
-os.sleep(1)
-
-local list = playerz.getOnlinePlayers()
-local onlineSet = {}
-
--- STREAMING_CHUNK: Updating or creating text elements for online players...
-for i, plr in pairs(list) do
-    onlineSet[plr] = true
-    local player = playerz.getPlayer(plr)
+  for i, plr in ipairs(list) do
+    -- 'plr' from getOnlinePlayers() is already the clean string username, 
+    -- bypassing any weird formatting from player.name
+    currentPlayers[plr] = true
     
+    local player = playerz.getPlayer(plr)
     if player then
-        local x, y, z = floor(player.x), floor(player.y), floor(player.z)
-        local content = plr .. " x: " .. x .. " y: " .. y .. " z: " .. z
-        if multidimspyallowed and player.dimension then
-            content = content .. " [" .. player.dimension .. "]"
-        end
+      local x = floor(player.x)
+      local y = floor(player.y)
+      local z = floor(player.z)
+      
+      local contentText = string.wpformat and string.format("%s x: %d y: %d z: %d", plr, x, y, z) or (plr.." x: "..x.." y: "..y.." z: "..z)
 
-        if playerTexts[plr] then
-            -- Update existing text element without recreating it
-            playerTexts[plr].setText(content)
-            playerTexts[plr].setY(i * 30)
-        else
-            -- Create a new text element if the player just joined
-            playerTexts[plr] = monitor.createText({
-                gui = true,
-                x = 30,
-                y = i * 30,
-                content = content,
-                shadow = true
-            })
-        end
+      if multidimspyallowed == true then
+        local playerdim = player.dimension
+      end
+
+      -- Check if text element already exists for this player
+      if activeTexts[plr] then
+        -- Update existing element using setContent instead of recreating it
+        activeTexts[plr].setContent(contentText)
+        activeTexts[plr].setPos(30, i * 30)
+      else
+        -- Create a new text element if it doesn't exist
+        activeTexts[plr] = monitor.createText({
+          gui = true,
+          x = 30,
+          y = i * 30,
+          content = contentText,
+          shadow = true
+        })
+      end
     end
-end
+  end
 
--- STREAMING_CHUNK: Cleaning up elements for disconnected players...
-for plr, textObj in pairs(playerTexts) do
-    if not onlineSet[plr] then
-        if textObj and textObj.delete then
-            textObj.delete()
-        end
-        playerTexts[plr] = nil
+  -- Clean up elements for players who logged off
+  for plr, element in pairs(activeTexts) do
+    if not currentPlayers[plr] then
+      if element.delete then
+        element.delete()
+      end
+      activeTexts[plr] = nil
     end
-end
-
-
+  end
 end
