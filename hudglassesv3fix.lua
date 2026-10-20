@@ -41,9 +41,10 @@ if actualWearerName then
 end
 
 -- 3. Check dimension permissions using the verified name
+local wearerData = nil
 if actualWearerName then
-  local wearplayer = playerz.getPlayer(actualWearerName)
-  if wearplayer and wearplayer.dimension ~= nil then
+  wearerData = playerz.getPlayer(actualWearerName)
+  if wearerData and wearerData.dimension ~= nil then
     multidimspyallowed = true
   end
 end
@@ -51,6 +52,22 @@ end
 -- Floor function
 local function floor(value)
   return math.floor(value)
+end
+
+-- Generate a visual health bar string
+local function getHealthBar(current, maxHealth, barLength)
+  barLength = barLength or 10
+  current = math.max(0, math.min(current or 0, maxHealth or 20))
+  maxHealth = math.max(1, maxHealth or 20)
+  
+  local filledLength = math.floor((current / maxHealth) * barLength + 0.5)
+  local emptyLength = barLength - filledLength
+  
+  local bar = "["
+  for i = 1, filledLength do bar = bar .. "█" end
+  for i = 1, emptyLength do bar = bar .. "░" end
+  bar = bar .. "]"
+  return bar
 end
 
 -- Tables to keep track of active elements
@@ -64,8 +81,6 @@ local statsBg = nil
 local statsTexts = {}
 local selectedPlayerIndex = 1
 
--- Main HUD loop combined with parallel key listener or non-blocking event handling
--- Using parallel to handle key presses cleanly alongside the update loop
 local function mainLoop()
   while true do
     if allowedwearerIsWearing == false then
@@ -87,7 +102,6 @@ local function mainLoop()
     end
 
     -- 1. Manage scaling background rectangle for the player list (Left 3D Panel, moved down by 1.5)
-    -- Added 1 extra line height for the title header
     local totalLines = playerCount + 1
     local bgHeight = math.max(1.5, (totalLines * 0.4) + 0.4)
     if playerCount > 0 then
@@ -124,7 +138,7 @@ local function mainLoop()
         rotY = 10,
         center = true,
         x = -3.5,
-        y = -0.4, -- shifted down by 1.5
+        y = -0.4,
         z = -3,
         fontSize = 0.02,
         content = "--- PLAYERS ---",
@@ -146,11 +160,10 @@ local function mainLoop()
         local y = floor(player.y)
         local z = floor(player.z)
         
-        -- Highlight selected player with arrows
         local prefix = (i == selectedPlayerIndex) and "> " or "  "
         local contentText = string.format("%s%s x:%d y:%d z:%d", prefix, plr, x, y, z)
 
-        local yPos = -0.8 - ((i - 1) * 0.4) -- shifted down by 1.5
+        local yPos = -0.8 - ((i - 1) * 0.4)
 
         if activeTexts[plr] then
           activeTexts[plr].setContent(contentText)
@@ -185,42 +198,61 @@ local function mainLoop()
       end
     end
 
-    -- 3. Selected Player Statistics Panel (Center/Bottom 3D Panel)
+    -- 3. Selected Player Statistics Panel (Positioned above coordinate panel with same rotation)
     if playerCount > 0 and list[selectedPlayerIndex] then
       local selectedName = list[selectedPlayerIndex]
       local targetData = playerz.getPlayer(selectedName)
       
       if targetData then
         local statDim = tostring(targetData.dimension or "Unknown"):gsub("minecraft:", "")
+        
+        -- Calculate distance from wearer if wearer coordinates are valid
+        local distStr = "N/A"
+        if wearerData and wearerData.x and targetData.x then
+          local dx = targetData.x - wearerData.x
+          local dy = targetData.y - wearerData.y
+          local dz = targetData.z - wearerData.z
+          distStr = string.format("%.1f blocks", math.sqrt(dx*dx + dy*dy + dz*dz))
+        end
+
+        local currentHealth = targetData.health or 20
+        local maxHealth = targetData.maxHealth or 20
+        local healthBar = getHealthBar(currentHealth, maxHealth, 10)
+
         local statStats = {
           "--- PLAYER STATS ---",
           "Name: " .. selectedName,
+          string.format("HP: %s (%d/%d)", healthBar, floor(currentHealth), floor(maxHealth)),
+          string.format("Dist: %s", distStr),
           string.format("Pos: %d, %d, %d", floor(targetData.x), floor(targetData.y), floor(targetData.z)),
-          "Dim: " .. statDim,
-          string.format("Pitch/Yaw: %.1f / %.1f", targetData.pitch or 0, targetData.yaw or 0)
+          "Dim: " .. statDim
         }
+
+        local statsBgHeight = (#statStats * 0.35) + 0.3
 
         if not statsBg then
           statsBg = monitor.createRectangle({
             gui = false,
             relativePosition = true,
             relativeRotation = true,
-            rotY = 0,
-            x = 0,
-            y = -1.8,
+            rotY = 10,
+            x = -3.5,
+            y = 1.0,
             z = -3,
             sizeX = 4,
-            sizeY = 2.5,
+            sizeY = statsBgHeight,
             color = 0x000000,
             opacity = 0.5
           })
+        else
+          statsBg.setSizeY(statsBgHeight)
         end
 
         for idx, line in ipairs(statStats) do
-          local sY = -1.0 - ((idx - 1) * 0.35)
+          local sY = 1.5 - ((idx - 1) * 0.35)
           if statsTexts[idx] then
             statsTexts[idx].setContent(line)
-            statsTexts[idx].setX(0)
+            statsTexts[idx].setX(-3.5)
             statsTexts[idx].setY(sY)
             statsTexts[idx].setZ(-3)
           else
@@ -228,9 +260,9 @@ local function mainLoop()
               gui = false,
               relativePosition = true,
               relativeRotation = true,
-              rotY = 0,
+              rotY = 10,
               center = true,
-              x = 0,
+              x = -3.5,
               y = sY,
               z = -3,
               fontSize = 0.02,
@@ -241,7 +273,6 @@ local function mainLoop()
         end
       end
     else
-      -- Remove stats panel if no players online
       if statsBg and statsBg.delete then
         statsBg.delete()
         statsBg = nil
@@ -264,7 +295,7 @@ local function mainLoop()
       if envDetector.isThundering and envDetector.isThundering() then
         weatherStr = "Thunder"
       elseif envDetector.isRaining and envDetector.isRaining() then
-        weatherStr5 = "Rain"
+        weatherStr = "Rain"
       end
       
       local biomeStr = envDetector.getBiome and envDetector.getBiome() or "Unknown"
@@ -327,10 +358,8 @@ end
 local function keyListener()
   while true do
     local event, key = os.pullEvent("key")
-    -- Arrow Up (keys.up) or W / Up mapping
     if key == keys.up or key == keys.w then
       selectedPlayerIndex = selectedPlayerIndex - 1
-    -- Arrow Down (keys.down) or S / Down mapping
     elseif key == keys.down or key == keys.s then
       selectedPlayerIndex = selectedPlayerIndex + 1
     end
