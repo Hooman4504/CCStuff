@@ -1,24 +1,24 @@
 ------------------------------------------------------------
 -- Advanced Peripherals 0.8.2a
--- Smart Glasses coordinates display with scaling frame & env panel
+-- Smart Glasses coordinates & environment panels (3D HUD)
 ------------------------------------------------------------
- 
+
 local monitor = smartglasses.modules.overlay
 local playerz = peripheral.find("player_detector")
 local envDetector = peripheral.find("environment_detector")
- 
+
 local multidimspyallowed = false
 local allowedwearerIsWearing = false
- 
+
 local allowedwearers = {
   "Hooman4504",
   "burger_destroyer"
 }
- 
+
 -- 1. Get owner data (UUID workaround for bugged .name)
 local wearer = smartglasses.getOwner()
 local actualWearerName = nil
- 
+
 if wearer and wearer.uuid then
   local onlinePlayers = playerz.getOnlinePlayers()
   for _, plrName in ipairs(onlinePlayers) do
@@ -29,7 +29,7 @@ if wearer and wearer.uuid then
     end
   end
 end
- 
+
 -- 2. Validate if the resolved true username is allowed
 if actualWearerName then
   for _, v in pairs(allowedwearers) do
@@ -39,7 +39,7 @@ if actualWearerName then
     end
   end
 end
- 
+
 -- 3. Check dimension permissions using the verified name
 if actualWearerName then
   local wearplayer = playerz.getPlayer(actualWearerName)
@@ -47,18 +47,18 @@ if actualWearerName then
     multidimspyallowed = true
   end
 end
- 
+
 -- Floor function
 local function floor(value)
   return math.floor(value)
 end
- 
+
 -- Tables to keep track of active elements
 local activeTexts = {}
 local playerListBg = nil
 local envBg = nil
 local envTexts = {}
- 
+
 -- Main loop
 while true do
   
@@ -72,18 +72,22 @@ while true do
   local list = playerz.getOnlinePlayers()
   local currentPlayers = {}
   local playerCount = #list
- 
-  -- 1. Manage scaling background rectangle for the player list
-  local bgHeight = (playerCount * 30) + 10
+
+  -- 1. Manage scaling background rectangle for the player list (Left 3D Panel)
+  local bgHeight = math.max(1.5, (playerCount * 0.4) + 0.6)
   if playerCount > 0 then
     if playerListBg then
       playerListBg.setSizeY(bgHeight)
     else
       playerListBg = monitor.createRectangle({
-        gui = true,
-        x = 20,
-        y = 15,
-        sizeX = 220,
+        gui = false,
+        relativePosition = true,
+        relativeRotation = true,
+        rotY = 10,
+        x = -3.5,
+        y = 0,
+        z = -3,
+        sizeX = 4,
         sizeY = bgHeight,
         color = 0x000000,
         opacity = 0.5
@@ -95,8 +99,8 @@ while true do
       playerListBg = nil
     end
   end
- 
-  -- 2. Update player coordinate texts
+
+  -- 2. Update player coordinate texts (Left 3D Panel)
   for i, plr in ipairs(list) do
     currentPlayers[plr] = true
     
@@ -107,28 +111,35 @@ while true do
       local z = floor(player.z)
       
       local contentText = string.format("%s x: %d y: %d z: %d", plr, x, y, z)
- 
+
       if multidimspyallowed == true then
         local playerdim = player.dimension
       end
- 
+
       -- Check if text element already exists for this player
       if activeTexts[plr] then
         activeTexts[plr].setContent(contentText)
-        activeTexts[plr].setX(30)
-        activeTexts[plr].setY(25 + ((i - 1) * 30))
+        activeTexts[plr].setX(-3.5)
+        activeTexts[plr].setY(1.1 - ((i - 1) * 0.4))
+        activeTexts[plr].setZ(-3)
       else
         activeTexts[plr] = monitor.createText({
-          gui = true,
-          x = 30,
-          y = 25 + ((i - 1) * 30),
+          gui = false,
+          relativePosition = true,
+          relativeRotation = true,
+          rotY = 10,
+          center = true,
+          x = -3.5,
+          y = 1.1 - ((i - 1) * 0.4),
+          z = -3,
+          fontSize = 0.02,
           content = contentText,
           shadow = true
         })
       end
     end
   end
- 
+
   -- Clean up elements for players who logged off
   for plr, element in pairs(activeTexts) do
     if not currentPlayers[plr] then
@@ -138,12 +149,15 @@ while true do
       activeTexts[plr] = nil
     end
   end
- 
-  -- 3. Environment Detector Panel (Bottom Right / Side Panel)
+
+  -- 3. Environment Detector Panel (Right 3D Side Panel)
   if envDetector then
-    -- Gather environment data safely
+    -- Gather environment data safely & fix time formatting
     local rawTime = envDetector.getTime and envDetector.getTime() or 0
-    local timeStr = textutils and textutils.formatTime and textutils.formatTime(rawTime, true) or tostring(rawTime)
+    if type(rawTime) == "number" then
+      rawTime = math.floor(rawTime % 24000)
+    end
+    local timeStr = (textutils and textutils.formatTime) and textutils.formatTime(rawTime, true) or tostring(rawTime)
     
     local weatherStr = "Clear"
     if envDetector.isThundering and envDetector.isThundering() then
@@ -154,11 +168,11 @@ while true do
     
     local biomeStr = envDetector.getBiome and envDetector.getBiome() or "Unknown"
     local dimStr = envDetector.getDimension and envDetector.getDimension() or "Unknown"
- 
-    -- Clean up prefix namespace if needed for cleaner look
+
+    -- Clean up prefix namespace for cleaner look
     biomeStr = tostring(biomeStr):gsub("minecraft:", "")
     dimStr = tostring(dimStr):gsub("minecraft:", "")
- 
+
     local envData = {
       "--- ENVIRONMENT ---",
       "Time: " .. timeStr,
@@ -166,7 +180,7 @@ while true do
       "Biome: " .. biomeStr,
       "Dimension: " .. dimStr
     }
- 
+
     -- Create background box for env panel if it doesn't exist
     if not envBg then
       envBg = monitor.createRectangle({
@@ -183,13 +197,13 @@ while true do
         opacity = 0.5
       })
     end
- 
+
     -- Update or create text lines for the environment panel
     for idx, textLine in ipairs(envData) do
       if envTexts[idx] then
         envTexts[idx].setContent(textLine)
         envTexts[idx].setX(3.5)
-        envTexts[idx].setY(1.7-(idx/2 * 1.05))
+        envTexts[idx].setY(1.7 - ((idx - 1) * 0.35))
         envTexts[idx].setZ(-3)
       else
         envTexts[idx] = monitor.createText({
@@ -198,10 +212,10 @@ while true do
           relativeRotation = true,
           rotY = -10,
           center = true,
-          x = 3.5,--2.1,
-          y = 0,--0 + ((idx - 1) * 1.1),
-          z = -3,---2.5,
-          fontSize = .02,
+          x = 3.5,
+          y = 1.7 - ((idx - 1) * 0.35),
+          z = -3,
+          fontSize = 0.02,
           content = textLine,
           shadow = true
         })
