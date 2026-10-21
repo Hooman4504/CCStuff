@@ -98,8 +98,8 @@ local function initUI()
     gui = true,
     x = 280,
     y = 30,
-    width = 140,
-    height = 95,
+    sizeX = 140,
+    sizeY = 95,
     color = 0x000000,
     opacity = 0.5
   })
@@ -171,15 +171,15 @@ local function mainLoop()
     local bgHeight = math.max(40, ((playerCount + 1) * 20) + 10)
     if playerCount > 0 then
       if playerListBg then
-        playerListBg.setHeight(bgHeight)
+        playerListBg.setSizeY(bgHeight)
         playerListBg.setEnabled(true)
       else
         playerListBg = monitor.createRectangle({
           gui = true,
           x = 10,
           y = 120,
-          width = 160,
-          height = bgHeight,
+          sizeX = 160,
+          sizeY = bgHeight,
           color = 0x000000,
           opacity = 0.5
         })
@@ -270,8 +270,8 @@ local function mainLoop()
             gui = true,
             x = 10,
             y = 10,
-            width = 160,
-            height = 105,
+            sizeX = 160,
+            sizeY = 105,
             color = 0x000000,
             opacity = 0.5
           })
