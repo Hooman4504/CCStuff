@@ -93,13 +93,13 @@ local function initUI()
     shadow = true
   })
 
-  -- Environment Background (Top Right Area)
+  -- Environment Background (Aligned precisely behind envTexts starting at x=290, y=35)
   envBg = monitor.createRectangle({
     gui = true,
-    x = 280,
+    x = 285,
     y = 30,
-    sizeX = 140,
-    sizeY = 95,
+    sizeX = 135,
+    sizeY = 85,
     color = 0x000000,
     opacity = 0.5
   })
@@ -167,8 +167,8 @@ local function mainLoop()
       selectedPlayerIndex = 1
     end
 
-    -- 1. Player List Background (Left Side, Screen Space)
-    local bgHeight = math.max(40, ((playerCount + 1) * 20) + 10)
+    -- 1. Player List Background (Aligned precisely behind title at y=130 and player list)
+    local bgHeight = math.max(30, ((playerCount + 1) * 20) + 10)
     if playerCount > 0 then
       if playerListBg then
         playerListBg.setSizeY(bgHeight)
@@ -176,8 +176,8 @@ local function mainLoop()
       else
         playerListBg = monitor.createRectangle({
           gui = true,
-          x = 10,
-          y = 120,
+          x = 15,
+          y = 124,
           sizeX = 160,
           sizeY = bgHeight,
           color = 0x000000,
@@ -238,7 +238,7 @@ local function mainLoop()
       end
     end
 
-    -- 3. Selected Player Statistics Panel (Above Player List)
+    -- 3. Selected Player Statistics Panel (Aligned precisely behind stats text starting at y=18)
     if playerCount > 0 and list[selectedPlayerIndex] then
       local selectedName = list[selectedPlayerIndex]
       local targetData = playerz.getPlayer(selectedName)
@@ -268,10 +268,10 @@ local function mainLoop()
         if not statsBg then
           statsBg = monitor.createRectangle({
             gui = true,
-            x = 10,
-            y = 10,
-            sizeX = 160,
-            sizeY = 105,
+            x = 15,
+            y = 12,
+            sizeX = 155,
+            sizeY = 85,
             color = 0x000000,
             opacity = 0.5
           })
