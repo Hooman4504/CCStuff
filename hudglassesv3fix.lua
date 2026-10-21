@@ -117,19 +117,19 @@ end
 
 initUI()
 
--- Helper to set visibility of all elements when toggling HUD
-local function setHudElementsVisible(visible)
-  local alpha = visible and 0.5 or 0
-  local textAlpha = visible and colors.white or 0x00000000
+-- Helper to set enabled status of all elements when toggling HUD
+local function setHudElementsEnabled(enabled)
+  if playerListBg and playerListBg.setEnabled then playerListBg.setEnabled(enabled) end
+  if envBg and envBg.setEnabled then envBg.setEnabled(enabled) end
+  if statsBg and statsBg.setEnabled then statsBg.setEnabled(enabled) end
 
-  if playerListBg then playerListBg.setOpacity(alpha) end
-  if envBg then envBg.setOpacity(alpha) end
-  if statsBg then statsBg.setOpacity(alpha) end
-
-  if activeTexts["__title__"] then activeTexts["__title__"].setVisible(visible) end
-  for _, el in pairs(activeTexts) do if el.setVisible then el.setVisible(visible) end end
-  for _, el in pairs(envTexts) do if el.setVisible then el.setVisible(visible) end end
-  for _, el in pairs(statsTexts) do if el.setVisible then el.setVisible(visible) end end
+  if activeTexts["__title__"] and activeTexts["__title__"].setEnabled then 
+    activeTexts["__title__"].setEnabled(enabled) 
+  end
+  
+  for _, el in pairs(activeTexts) do if el.setEnabled then el.setEnabled(enabled) end end
+  for _, el in pairs(envTexts) do if el.setEnabled then el.setEnabled(enabled) end end
+  for _, el in pairs(statsTexts) do if el.setEnabled then el.setEnabled(enabled) end end
 end
 
 local function mainLoop()
@@ -146,7 +146,7 @@ local function mainLoop()
       statusTextObj.setContent(hudVisible and "HUD: ENABLED" or "HUD: DISABLED")
     end
 
-    setHudElementsVisible(hudVisible)
+    setHudElementsEnabled(hudVisible)
     if not hudVisible then
       goto continue
     end
@@ -172,7 +172,7 @@ local function mainLoop()
     if playerCount > 0 then
       if playerListBg then
         playerListBg.setHeight(bgHeight)
-        playerListBg.setOpacity(0.5)
+        playerListBg.setEnabled(true)
       else
         playerListBg = monitor.createRectangle({
           gui = true,
@@ -185,7 +185,7 @@ local function mainLoop()
         })
       end
     else
-      if playerListBg then playerListBg.setOpacity(0) end
+      if playerListBg and playerListBg.setEnabled then playerListBg.setEnabled(false) end
     end
 
     -- Player List Title Header
@@ -198,7 +198,7 @@ local function mainLoop()
         shadow = true
       })
     else
-      activeTexts["__title__"].setVisible(true)
+      if activeTexts["__title__"].setEnabled then activeTexts["__title__"].setEnabled(true) end
       activeTexts["__title__"].setContent("--- PLAYERS ---")
     end
 
@@ -216,7 +216,7 @@ local function mainLoop()
         local yPos = 130 + (i * 20)
 
         if activeTexts[plr] then
-          activeTexts[plr].setVisible(true)
+          if activeTexts[plr].setEnabled then activeTexts[plr].setEnabled(true) end
           activeTexts[plr].setContent(contentText)
           activeTexts[plr].setY(yPos)
         else
@@ -231,10 +231,10 @@ local function mainLoop()
       end
     end
 
-    -- Hide offline players' text
+    -- Disable offline players' text
     for plr, element in pairs(activeTexts) do
       if plr ~= "__title__" and not currentPlayers[plr] then
-        if element.setVisible then element.setVisible(false) end
+        if element.setEnabled then element.setEnabled(false) end
       end
     end
 
@@ -276,13 +276,13 @@ local function mainLoop()
             opacity = 0.5
           })
         else
-          statsBg.setOpacity(0.5)
+          if statsBg.setEnabled then statsBg.setEnabled(true) end
         end
 
         for idx, line in ipairs(statStats) do
           local sY = 18 + ((idx - 1) * 16)
           if statsTexts[idx] then
-            statsTexts[idx].setVisible(true)
+            if statsTexts[idx].setEnabled then statsTexts[idx].setEnabled(true) end
             statsTexts[idx].setContent(line)
           else
             statsTexts[idx] = monitor.createText({
@@ -296,9 +296,9 @@ local function mainLoop()
         end
       end
     else
-      if statsBg then statsBg.setOpacity(0) end
+      if statsBg and statsBg.setEnabled then statsBg.setEnabled(false) end
       for _, st in pairs(statsTexts) do
-        if st.setVisible then st.setVisible(false) end
+        if st.setEnabled then st.setEnabled(false) end
       end
     end
 
