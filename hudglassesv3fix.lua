@@ -10,7 +10,7 @@ local keyboard = smartglasses.modules.keyboard
 
 local multidimspyallowed = false
 local allowedwearerIsWearing = false
-local hudVisible = true -- Toggle state for V key
+local hudVisible = true -- Toggle state
 
 local allowedwearers = {
   "Hooman4504",
@@ -65,8 +65,8 @@ local function getHealthBar(current, maxHealth, barLength)
   local emptyLength = barLength - filledLength
   
   local bar = "["
-  for i = 1, filledLength do bar = bar .. "â" end
-  for i = 1, emptyLength do bar = bar .. "â" end
+  for i = 1, filledLength do bar = bar .. "█" end
+  for i = 1, emptyLength do bar = bar .. "░" end
   bar = bar .. "]"
   return bar
 end
@@ -83,7 +83,7 @@ local statsTexts = {}
 local selectedPlayerIndex = 1
 local statusTextObj = nil
 
--- Helper to clear out UI elements when toggled off
+-- Helper to completely clear out UI elements and canvas when toggled off
 local function clearUIElements()
   if playerListBg and playerListBg.delete then playerListBg.delete(); playerListBg = nil end
   if envBg and envBg.delete then envBg.delete(); envBg = nil end
@@ -97,6 +97,9 @@ local function clearUIElements()
   
   for _, el in pairs(statsTexts) do if el.delete then el.delete() end end
   statsTexts = {}
+
+  -- Force clear the canvas overlay completely
+  monitor.clear()
 end
 
 monitor.clear()
@@ -118,7 +121,6 @@ local function mainLoop()
 
     -- Update Top-Right Status Indicator (Always visible regardless of HUD toggle)
     local statusStr = hudVisible and "HUD: ENABLED" or "HUD: DISABLED"
-    local statusColor = hudVisible and 0x00FF00 or 0xFF0000
     if not statusTextObj then
       statusTextObj = monitor.createText({
         gui = false,
@@ -255,7 +257,7 @@ local function mainLoop()
       end
     end
 
-    -- 3. Selected Player Statistics Panel (Stat text starting at Y = 2.4)
+    -- 3. Selected Player Statistics Panel
     if playerCount > 0 and list[selectedPlayerIndex] then
       local selectedName = list[selectedPlayerIndex]
       local targetData = playerz.getPlayer(selectedName)
@@ -294,7 +296,7 @@ local function mainLoop()
             relativeRotation = true,
             rotY = 10,
             x = -3.5,
-            y = 1.2, -- Positioned matching stat group area
+            y = 1.2,
             z = -3,
             sizeX = 4,
             sizeY = statsBgHeight,
@@ -307,7 +309,7 @@ local function mainLoop()
         end
 
         for idx, line in ipairs(statStats) do
-          local sY = 2.6 - ((idx - 1) * 0.35) -- Stat text starts precisely at Y = 2.4
+          local sY = 2.6 - ((idx - 1) * 0.35)
           if statsTexts[idx] then
             statsTexts[idx].setContent(line)
             statsTexts[idx].setX(-3.5)
@@ -414,18 +416,19 @@ local function mainLoop()
   end
 end
 
--- Key listener function to handle Up/Down arrow selection and V toggle
+-- Key listener function to handle Up/Down arrow selection and toggle
 local function keyListener()
   while true do
-  local event, key, is_held = os.pullEvent("key")
-    local keyName = keys.getName(key)
-    print(keyName)
-    if keyName == "up" then
+    local event, key = os.pullEvent("key")
+    if key == keys.up or key == keys.w then
       selectedPlayerIndex = selectedPlayerIndex - 1
-    elseif keyName == "down" then
+    elseif key == keys.down or key == keys.s then
       selectedPlayerIndex = selectedPlayerIndex + 1
-    elseif keyName == "h" then
+    elseif key == keys.h or key == keys.v then
       hudVisible = not hudVisible
+      if not hudVisible then
+        clearUIElements()
+      end
     end
   end
 end
