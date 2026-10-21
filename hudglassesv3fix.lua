@@ -1,15 +1,17 @@
 ------------------------------------------------------------
 -- Advanced Peripherals 0.8.2a
--- Smart Glasses 2D HUD: Coordinates, Environment & Stats
+-- Smart Glasses 3D HUD: Coordinates, Environment & Stats
 ------------------------------------------------------------
 
 local monitor = smartglasses.modules.overlay
 local playerz = peripheral.find("player_detector")
 local envDetector = peripheral.find("environment_detector")
+local keyboard = smartglasses.modules.keyboard
 
 local multidimspyallowed = false
 local allowedwearerIsWearing = false
-local hudVisible = true
+local hudVisible = true -- Toggle state
+local lastHudVisible = true
 
 local allowedwearers = {
   "Hooman4504",
@@ -31,7 +33,7 @@ if wearer and wearer.uuid then
   end
 end
 
--- 2. Validate allowed wearers
+-- 2. Validate if the resolved true username is allowed
 if actualWearerName then
   for _, v in pairs(allowedwearers) do
     if actualWearerName == v then
@@ -41,7 +43,7 @@ if actualWearerName then
   end
 end
 
--- 3. Check dimension permissions
+-- 3. Check dimension permissions using the verified name
 if actualWearerName then
   local wearplayer = playerz.getPlayer(actualWearerName)
   if wearplayer and wearplayer.dimension ~= nil then
@@ -54,7 +56,7 @@ local function floor(value)
   return math.floor(value)
 end
 
--- Health bar generator
+-- Generate a visual health bar string
 local function getHealthBar(current, maxHealth, barLength)
   barLength = barLength or 10
   current = math.max(0, math.min(current or 0, maxHealth or 20))
@@ -70,67 +72,38 @@ local function getHealthBar(current, maxHealth, barLength)
   return bar
 end
 
--- Persistent UI Element References
+-- Tables to keep track of active elements
 local activeTexts = {}
 local playerListBg = nil
 local envBg = nil
 local envTexts = {}
+
+-- Stats panel variables
 local statsBg = nil
 local statsTexts = {}
 local selectedPlayerIndex = 1
 local statusTextObj = nil
 
-monitor.clear()
-
--- Create static UI objects once upon startup
-local function initUI()
-  -- Status Indicator (Top Right)
-  statusTextObj = monitor.createText({
-    gui = true,
-    x = 300,
-    y = 10,
-    content = "HUD: ENABLED",
-    shadow = true
-  })
-
-  -- Environment Background (Aligned precisely behind envTexts starting at x=290, y=35)
-  envBg = monitor.createRectangle({
-    gui = true,
-    x = 285,
-    y = 30,
-    sizeX = 135,
-    sizeY = 85,
-    color = 0x000000,
-    opacity = 0.5
-  })
-
-  for i = 1, 5 do
-    envTexts[i] = monitor.createText({
-      gui = true,
-      x = 290,
-      y = 35 + ((i - 1) * 16),
-      content = "",
-      shadow = true
-    })
-  end
-end
-
-initUI()
-
--- Helper to set enabled status of all elements when toggling HUD
-local function setHudElementsEnabled(enabled)
-  if playerListBg and playerListBg.setEnabled then playerListBg.setEnabled(enabled) end
-  if envBg and envBg.setEnabled then envBg.setEnabled(enabled) end
-  if statsBg and statsBg.setEnabled then statsBg.setEnabled(enabled) end
-
-  if activeTexts["__title__"] and activeTexts["__title__"].setEnabled then 
-    activeTexts["__title__"].setEnabled(enabled) 
-  end
+-- Helper to completely clear out UI elements and canvas when toggled off
+local function clearUIElements()
+  if playerListBg and playerListBg.delete then pcall(function() playerListBg.delete() end) playerListBg = nil end
+  if envBg and envBg.delete then pcall(function() envBg.delete() end) envBg = nil end
+  if statsBg and statsBg.delete then pcall(function() statsBg.delete() end) statsBg = nil end
   
-  for _, el in pairs(activeTexts) do if el.setEnabled then el.setEnabled(enabled) end end
-  for _, el in pairs(envTexts) do if el.setEnabled then el.setEnabled(enabled) end end
-  for _, el in pairs(statsTexts) do if el.setEnabled then el.setEnabled(enabled) end end
+  for _, el in pairs(activeTexts) do if el.delete then pcall(function() el.delete() end) end end
+  activeTexts = {}
+  
+  for _, el in pairs(envTexts) do if el.delete then pcall(function() el.delete() end) end end
+  envTexts = {}
+  
+  for _, el in pairs(statsTexts) do if el.delete then pcall(function() el.delete() end) end end
+  statsTexts = {}
+
+  -- Force clear the canvas overlay completely once
+  monitor.clear()
 end
+
+monitor.clear()
 
 local function mainLoop()
   while true do
@@ -141,70 +114,113 @@ local function mainLoop()
     
     os.sleep(0.1)
 
-    -- Update Top-Right Status Indicator
-    if statusTextObj then
-      statusTextObj.setContent(hudVisible and "HUD: ENABLED" or "HUD: DISABLED")
+    -- Detect toggle state changes so we only clear ONCE when turning off
+    if hudVisible ~= lastHudVisible then
+      lastHudVisible = hudVisible
+      if not hudVisible then
+        clearUIElements()
+      end
     end
 
-    setHudElementsEnabled(hudVisible)
-    if not hudVisible then
-      goto continue
-    end
-
-    -- Fetch wearer position for distance calculation
+    -- Fetch fresh wearer coordinates every tick for accurate distance calculation
     local wearerData = nil
     if actualWearerName then
       wearerData = playerz.getPlayer(actualWearerName)
+    end
+
+    -- Update Top-Right Status Indicator (Always visible regardless of HUD toggle)
+    local statusStr = hudVisible and "HUD: ENABLED" or "HUD: DISABLED"
+    if not statusTextObj then
+      statusTextObj = monitor.createText({
+        gui = false,
+        relativePosition = true,
+        relativeRotation = true,
+        rotY = -10,
+        center = true,
+        x = 4.2,
+        y = 2.2,
+        z = -3,
+        fontSize = 0.02,
+        content = statusStr,
+        shadow = true
+      })
+    else
+      statusTextObj.setContent(statusStr)
+      statusTextObj.setX(4.2)
+      statusTextObj.setY(2.2)
+      statusTextObj.setZ(-3)
+    end
+
+    -- If HUD is disabled, skip rendering the rest of the UI
+    if not hudVisible then
+      goto continue
     end
     
     local list = playerz.getOnlinePlayers()
     local currentPlayers = {}
     local playerCount = #list
 
+    -- Keep selection index in bounds
     if playerCount > 0 then
       selectedPlayerIndex = math.max(1, math.min(selectedPlayerIndex, playerCount))
     else
       selectedPlayerIndex = 1
     end
 
-    -- 1. Player List Background (Aligned precisely behind title at y=130 and player list)
-    local bgHeight = math.max(30, ((playerCount + 1) * 20) + 10)
+    -- 1. Manage scaling background rectangle for the player list (Left 3D Panel at Y = -1.35)
+    local totalLines = playerCount + 1
+    local bgHeight = math.max(1.5, (totalLines * 0.4) + 0.4)
     if playerCount > 0 then
       if playerListBg then
         playerListBg.setSizeY(bgHeight)
-        playerListBg.setEnabled(true)
+        playerListBg.setY(-1.35)
       else
         playerListBg = monitor.createRectangle({
-          gui = true,
-          x = 15,
-          y = 124,
-          sizeX = 160,
+          gui = false,
+          relativePosition = true,
+          relativeRotation = true,
+          rotY = 10,
+          x = -3.5,
+          y = -1.35,
+          z = -3,
+          sizeX = 4,
           sizeY = bgHeight,
           color = 0x000000,
           opacity = 0.5
         })
       end
     else
-      if playerListBg and playerListBg.setEnabled then playerListBg.setEnabled(false) end
+      if playerListBg and playerListBg.delete then
+        pcall(function() playerListBg.delete() end)
+        playerListBg = nil
+      end
     end
 
-    -- Player List Title Header
+    -- Draw Title Header for Player Panel
     if not activeTexts["__title__"] then
       activeTexts["__title__"] = monitor.createText({
-        gui = true,
-        x = 20,
-        y = 130,
+        gui = false,
+        relativePosition = true,
+        relativeRotation = true,
+        rotY = 10,
+        center = true,
+        x = -3.5,
+        y = -0.25,
+        z = -3,
+        fontSize = 0.02,
         content = "--- PLAYERS ---",
         shadow = true
       })
     else
-      if activeTexts["__title__"].setEnabled then activeTexts["__title__"].setEnabled(true) end
-      activeTexts["__title__"].setContent("--- PLAYERS ---")
+      activeTexts["__title__"].setX(-3.5)
+      activeTexts["__title__"].setY(-0.25)
+      activeTexts["__title__"].setZ(-3)
     end
 
-    -- 2. Player Coordinates Text Elements
+    -- 2. Update player coordinate texts (Left 3D Panel)
     for i, plr in ipairs(list) do
       currentPlayers[plr] = true
+      
       local player = playerz.getPlayer(plr)
       if player then
         local x = floor(player.x)
@@ -212,18 +228,26 @@ local function mainLoop()
         local z = floor(player.z)
         
         local prefix = (i == selectedPlayerIndex) and "> " or "  "
-        local contentText = string.format("%s%s %d,%d,%d", prefix, plr, x, y, z)
-        local yPos = 130 + (i * 20)
+        local contentText = string.format("%s%s x:%d y:%d z:%d", prefix, plr, x, y, z)
+
+        local yPos = -0.65 - ((i - 1) * 0.4)
 
         if activeTexts[plr] then
-          if activeTexts[plr].setEnabled then activeTexts[plr].setEnabled(true) end
           activeTexts[plr].setContent(contentText)
+          activeTexts[plr].setX(-3.5)
           activeTexts[plr].setY(yPos)
+          activeTexts[plr].setZ(-3)
         else
           activeTexts[plr] = monitor.createText({
-            gui = true,
-            x = 20,
+            gui = false,
+            relativePosition = true,
+            relativeRotation = true,
+            rotY = 10,
+            center = true,
+            x = -3.5,
             y = yPos,
+            z = -3,
+            fontSize = 0.02,
             content = contentText,
             shadow = true
           })
@@ -231,64 +255,85 @@ local function mainLoop()
       end
     end
 
-    -- Disable offline players' text
+    -- Clean up elements for players who logged off
     for plr, element in pairs(activeTexts) do
       if plr ~= "__title__" and not currentPlayers[plr] then
-        if element.setEnabled then element.setEnabled(false) end
+        if element.delete then
+          pcall(function() element.delete() end)
+        end
+        activeTexts[plr] = nil
       end
     end
 
-    -- 3. Selected Player Statistics Panel (Aligned precisely behind stats text starting at y=18)
+    -- 3. Selected Player Statistics Panel (Stat text starting at Y = 2.4)
     if playerCount > 0 and list[selectedPlayerIndex] then
       local selectedName = list[selectedPlayerIndex]
       local targetData = playerz.getPlayer(selectedName)
       
       if targetData then
         local statDim = tostring(targetData.dimension or "Unknown"):gsub("minecraft:", "")
+        
+        -- Calculate distance from wearer
         local distStr = "N/A"
         if wearerData and wearerData.x and targetData.x then
           local dx = targetData.x - wearerData.x
           local dy = targetData.y - wearerData.y
           local dz = targetData.z - wearerData.z
-          distStr = string.format("%.1f blk", math.sqrt(dx*dx + dy*dy + dz*dz))
+          distStr = string.format("%.1f blocks", math.sqrt(dx*dx + dy*dy + dz*dz))
         end
 
         local currentHealth = targetData.health or 20
         local maxHealth = targetData.maxHealth or 20
-        local healthBar = getHealthBar(currentHealth, maxHealth, 8)
+        local healthBar = getHealthBar(currentHealth, maxHealth, 10)
 
         local statStats = {
-          "--- STATS ---",
+          "--- PLAYER STATS ---",
           "Name: " .. selectedName,
-          string.format("HP: %s", healthBar),
+          string.format("HP: %s (%d/%d)", healthBar, floor(currentHealth), floor(maxHealth)),
           string.format("Dist: %s", distStr),
-          string.format("Dim: %s", statDim)
+          string.format("Pos: %d, %d, %d", floor(targetData.x), floor(targetData.y), floor(targetData.z)),
+          "Dim: " .. statDim
         }
+
+        local statsBgHeight = (#statStats * 0.35) + 0.3
 
         if not statsBg then
           statsBg = monitor.createRectangle({
-            gui = true,
-            x = 15,
-            y = 12,
-            sizeX = 155,
-            sizeY = 85,
+            gui = false,
+            relativePosition = true,
+            relativeRotation = true,
+            rotY = 10,
+            x = -3.5,
+            y = 2.0,
+            z = -3,
+            sizeX = 4,
+            sizeY = statsBgHeight,
             color = 0x000000,
             opacity = 0.5
           })
         else
-          if statsBg.setEnabled then statsBg.setEnabled(true) end
+          statsBg.setSizeY(statsBgHeight)
+          statsBg.setY(2.0)
         end
 
         for idx, line in ipairs(statStats) do
-          local sY = 18 + ((idx - 1) * 16)
+          local sY = 2.4 - ((idx - 1) * 0.35)
           if statsTexts[idx] then
-            if statsTexts[idx].setEnabled then statsTexts[idx].setEnabled(true) end
             statsTexts[idx].setContent(line)
+            statsTexts[idx].setX(-3.5)
+            statsTexts[idx].setY(sY)
+            statsTexts[idx].setZ(-3)
           else
             statsTexts[idx] = monitor.createText({
-              gui = true,
-              x = 20,
+              gui = false,
+              relativePosition = true,
+              relativeRotation = true,
+              rotY = 10,
+              center = true,
+              x = -3.5,
               y = sY,
+              z = -3,
+              fontSize = 0.02,
               content = line,
               shadow = true
             })
@@ -296,13 +341,17 @@ local function mainLoop()
         end
       end
     else
-      if statsBg and statsBg.setEnabled then statsBg.setEnabled(false) end
-      for _, st in pairs(statsTexts) do
-        if st.setEnabled then st.setEnabled(false) end
+      if statsBg and statsBg.delete then
+        pcall(function() statsBg.delete() end)
+        statsBg = nil
       end
+      for _, st in pairs(statsTexts) do
+        if st.delete then pcall(function() st.delete() end) end
+      end
+      statsTexts = {}
     end
 
-    -- 4. Environment Detector Panel
+    -- 4. Environment Detector Panel (Right 3D Side Panel)
     if envDetector then
       local rawTime = envDetector.getTime and envDetector.getTime() or 0
       if type(rawTime) == "number" then
@@ -317,20 +366,56 @@ local function mainLoop()
         weatherStr = "Rain"
       end
       
-      local biomeStr = tostring(envDetector.getBiome and envDetector.getBiome() or "Unknown"):gsub("minecraft:", "")
-      local dimStr = tostring(envDetector.getDimension and envDetector.getDimension() or "Unknown"):gsub("minecraft:", "")
+      local biomeStr = envDetector.getBiome and envDetector.getBiome() or "Unknown"
+      local dimStr = envDetector.getDimension and envDetector.getDimension() or "Unknown"
+
+      biomeStr = tostring(biomeStr):gsub("minecraft:", "")
+      dimStr = tostring(dimStr):gsub("minecraft:", "")
 
       local envData = {
         "--- ENVIRONMENT ---",
         "Time: " .. timeStr,
         "Weather: " .. weatherStr,
         "Biome: " .. biomeStr,
-        "Dim: " .. dimStr
+        "Dimension: " .. dimStr
       }
+
+      if not envBg then
+        envBg = monitor.createRectangle({
+          gui = false,
+          relativePosition = true,
+          relativeRotation = true,
+          rotY = -10,
+          x = 3.5,
+          y = 0,
+          z = -3,
+          sizeX = 4,
+          sizeY = 3,
+          color = 0x000000,
+          opacity = 0.5
+        })
+      end
 
       for idx, textLine in ipairs(envData) do
         if envTexts[idx] then
           envTexts[idx].setContent(textLine)
+          envTexts[idx].setX(3.5)
+          envTexts[idx].setY(1.7 - ((idx - 1) * 0.35))
+          envTexts[idx].setZ(-3)
+        else
+          envTexts[idx] = monitor.createText({
+            gui = false,
+            relativePosition = true,
+            relativeRotation = true,
+            rotY = -10,
+            center = true,
+            x = 3.5,
+            y = 1.7 - ((idx - 1) * 0.35),
+            z = -3,
+            fontSize = 0.02,
+            content = textLine,
+            shadow = true
+          })
         end
       end
     end
@@ -339,7 +424,7 @@ local function mainLoop()
   end
 end
 
--- Key listener function
+-- Key listener function to handle Up/Down arrow selection and toggle
 local function keyListener()
   while true do
     local event, key = os.pullEvent("key")
@@ -353,4 +438,5 @@ local function keyListener()
   end
 end
 
+-- Run both loops concurrently using parallel API
 parallel.waitForAll(mainLoop, keyListener)
