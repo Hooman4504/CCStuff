@@ -6,6 +6,7 @@
 local monitor = smartglasses.modules.overlay
 local playerz = peripheral.find("player_detector")
 local envDetector = peripheral.find("environment_detector")
+local keyboard = smartglasses.modules.keyboard
 
 local multidimspyallowed = false
 local allowedwearerIsWearing = false
@@ -64,8 +65,8 @@ local function getHealthBar(current, maxHealth, barLength)
   local emptyLength = barLength - filledLength
   
   local bar = "["
-  for i = 1, filledLength do bar = bar .. "█" end
-  for i = 1, emptyLength do bar = bar .. "░" end
+  for i = 1, filledLength do bar = bar .. "â" end
+  for i = 1, emptyLength do bar = bar .. "â" end
   bar = bar .. "]"
   return bar
 end
@@ -97,6 +98,8 @@ local function clearUIElements()
   for _, el in pairs(statsTexts) do if el.delete then el.delete() end end
   statsTexts = {}
 end
+
+monitor.clear()
 
 local function mainLoop()
   while true do
@@ -160,7 +163,7 @@ local function mainLoop()
     if playerCount > 0 then
       if playerListBg then
         playerListBg.setSizeY(bgHeight)
-        playerListBg.setY(-1.35)
+        playerListBg.setY(-1.22)
       else
         playerListBg = monitor.createRectangle({
           gui = false,
@@ -168,7 +171,7 @@ local function mainLoop()
           relativeRotation = true,
           rotY = 10,
           x = -3.5,
-          y = -1.35,
+          y = -1,22,
           z = -3,
           sizeX = 4,
           sizeY = bgHeight,
@@ -291,7 +294,7 @@ local function mainLoop()
             relativeRotation = true,
             rotY = 10,
             x = -3.5,
-            y = 2.0, -- Positioned matching stat group area
+            y = 1.2, -- Positioned matching stat group area
             z = -3,
             sizeX = 4,
             sizeY = statsBgHeight,
@@ -300,11 +303,11 @@ local function mainLoop()
           })
         else
           statsBg.setSizeY(statsBgHeight)
-          statsBg.setY(2.0)
+          statsBg.setY(1.2)
         end
 
         for idx, line in ipairs(statStats) do
-          local sY = 2.4 - ((idx - 1) * 0.35) -- Stat text starts precisely at Y = 2.4
+          local sY = 2.6 - ((idx - 1) * 0.35) -- Stat text starts precisely at Y = 2.4
           if statsTexts[idx] then
             statsTexts[idx].setContent(line)
             statsTexts[idx].setX(-3.5)
@@ -414,12 +417,14 @@ end
 -- Key listener function to handle Up/Down arrow selection and V toggle
 local function keyListener()
   while true do
-    local event, key = os.pullEvent("key")
-    if key == keys.up or key == keys.w then
+  local event, key, is_held = os.pullEvent("key")
+    local keyName = keys.getName(key)
+    print(keyName)
+    if keyName == "up" then
       selectedPlayerIndex = selectedPlayerIndex - 1
-    elseif key == keys.down or key == keys.s then
+    elseif keyName == "down" then
       selectedPlayerIndex = selectedPlayerIndex + 1
-    elseif key == keys.v then
+    elseif keyName == "h" then
       hudVisible = not hudVisible
     end
   end
