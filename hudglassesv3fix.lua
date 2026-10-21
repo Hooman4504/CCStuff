@@ -65,7 +65,7 @@ local function getHealthBar(current, maxHealth, barLength)
   local emptyLength = barLength - filledLength
   
   local bar = "["
-  for i = 1, filledLength do bar = bar .. "█" end
+for i = 1, filledLength do bar = bar .. "█" end
   for i = 1, emptyLength do bar = bar .. "░" end
   bar = bar .. "]"
   return bar
