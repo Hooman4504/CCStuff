@@ -11,6 +11,7 @@ local keyboard = smartglasses.modules.keyboard
 local multidimspyallowed = false
 local allowedwearerIsWearing = false
 local hudVisible = true -- Toggle state
+local lastHudVisible = true
 
 local allowedwearers = {
   "Hooman4504",
@@ -65,7 +66,7 @@ local function getHealthBar(current, maxHealth, barLength)
   local emptyLength = barLength - filledLength
   
   local bar = "["
-for i = 1, filledLength do bar = bar .. "█" end
+  for i = 1, filledLength do bar = bar .. "█" end
   for i = 1, emptyLength do bar = bar .. "░" end
   bar = bar .. "]"
   return bar
@@ -85,20 +86,20 @@ local statusTextObj = nil
 
 -- Helper to completely clear out UI elements and canvas when toggled off
 local function clearUIElements()
-  if playerListBg and playerListBg.delete then playerListBg.delete(); playerListBg = nil end
-  if envBg and envBg.delete then envBg.delete(); envBg = nil end
-  if statsBg and statsBg.delete then statsBg.delete(); statsBg = nil end
+  if playerListBg and playerListBg.delete then pcall(function() playerListBg.delete() end) playerListBg = nil end
+  if envBg and envBg.delete then pcall(function() envBg.delete() end) envBg = nil end
+  if statsBg and statsBg.delete then pcall(function() statsBg.delete() end) statsBg = nil end
   
-  for _, el in pairs(activeTexts) do if el.delete then el.delete() end end
+  for _, el in pairs(activeTexts) do if el.delete then pcall(function() el.delete() end) end end
   activeTexts = {}
   
-  for _, el in pairs(envTexts) do if el.delete then el.delete() end end
+  for _, el in pairs(envTexts) do if el.delete then pcall(function() el.delete() end) end end
   envTexts = {}
   
-  for _, el in pairs(statsTexts) do if el.delete then el.delete() end end
+  for _, el in pairs(statsTexts) do if el.delete then pcall(function() el.delete() end) end end
   statsTexts = {}
 
-  -- Force clear the canvas overlay completely
+  -- Force clear the canvas overlay completely once
   monitor.clear()
 end
 
@@ -112,6 +113,14 @@ local function mainLoop()
     end
     
     os.sleep(0.1)
+
+    -- Detect toggle state changes so we only clear ONCE when turning off
+    if hudVisible ~= lastHudVisible then
+      lastHudVisible = hudVisible
+      if not hudVisible then
+        clearUIElements()
+      end
+    end
 
     -- Fetch fresh wearer coordinates every tick for accurate distance calculation
     local wearerData = nil
@@ -142,9 +151,8 @@ local function mainLoop()
       statusTextObj.setZ(-3)
     end
 
-    -- If HUD is disabled, clear elements and skip rendering the rest
+    -- If HUD is disabled, skip rendering the rest of the UI
     if not hudVisible then
-      clearUIElements()
       goto continue
     end
     
@@ -165,7 +173,7 @@ local function mainLoop()
     if playerCount > 0 then
       if playerListBg then
         playerListBg.setSizeY(bgHeight)
-        playerListBg.setY(-1.22)
+        playerListBg.setY(-1.35)
       else
         playerListBg = monitor.createRectangle({
           gui = false,
@@ -173,7 +181,7 @@ local function mainLoop()
           relativeRotation = true,
           rotY = 10,
           x = -3.5,
-          y = -1.22,
+          y = -1.35,
           z = -3,
           sizeX = 4,
           sizeY = bgHeight,
@@ -183,7 +191,7 @@ local function mainLoop()
       end
     else
       if playerListBg and playerListBg.delete then
-        playerListBg.delete()
+        pcall(function() playerListBg.delete() end)
         playerListBg = nil
       end
     end
@@ -251,13 +259,13 @@ local function mainLoop()
     for plr, element in pairs(activeTexts) do
       if plr ~= "__title__" and not currentPlayers[plr] then
         if element.delete then
-          element.delete()
+          pcall(function() element.delete() end)
         end
         activeTexts[plr] = nil
       end
     end
 
-    -- 3. Selected Player Statistics Panel
+    -- 3. Selected Player Statistics Panel (Stat text starting at Y = 2.4)
     if playerCount > 0 and list[selectedPlayerIndex] then
       local selectedName = list[selectedPlayerIndex]
       local targetData = playerz.getPlayer(selectedName)
@@ -296,7 +304,7 @@ local function mainLoop()
             relativeRotation = true,
             rotY = 10,
             x = -3.5,
-            y = 1.2,
+            y = 2.0,
             z = -3,
             sizeX = 4,
             sizeY = statsBgHeight,
@@ -305,11 +313,11 @@ local function mainLoop()
           })
         else
           statsBg.setSizeY(statsBgHeight)
-          statsBg.setY(1.2)
+          statsBg.setY(2.0)
         end
 
         for idx, line in ipairs(statStats) do
-          local sY = 2.6 - ((idx - 1) * 0.35)
+          local sY = 2.4 - ((idx - 1) * 0.35)
           if statsTexts[idx] then
             statsTexts[idx].setContent(line)
             statsTexts[idx].setX(-3.5)
@@ -334,11 +342,11 @@ local function mainLoop()
       end
     else
       if statsBg and statsBg.delete then
-        statsBg.delete()
+        pcall(function() statsBg.delete() end)
         statsBg = nil
       end
       for _, st in pairs(statsTexts) do
-        if st.delete then st.delete() end
+        if st.delete then pcall(function() st.delete() end) end
       end
       statsTexts = {}
     end
@@ -426,9 +434,6 @@ local function keyListener()
       selectedPlayerIndex = selectedPlayerIndex + 1
     elseif key == keys.h or key == keys.v then
       hudVisible = not hudVisible
-      if not hudVisible then
-        clearUIElements()
-      end
     end
   end
 end
