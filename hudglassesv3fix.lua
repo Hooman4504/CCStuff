@@ -171,7 +171,7 @@ local function mainLoop()
           relativeRotation = true,
           rotY = 10,
           x = -3.5,
-          y = -1,22,
+          y = -1.22,
           z = -3,
           sizeX = 4,
           sizeY = bgHeight,
